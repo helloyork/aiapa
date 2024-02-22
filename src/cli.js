@@ -18,6 +18,12 @@ const { program, Option } = commander;
  * @property {boolean} debug
  * @property {string} apiKey
  * @property {string} envFile
+ * @property {number} maxTask
+ * @property {number} maxConcurrency
+ * @property {number} timeOut
+ * @property {string} query
+ * @property {boolean} verbose
+ * @property {boolean} headful
  */
 /**
  * @typedef EnvConfig
@@ -35,6 +41,12 @@ class App {
         debug: false,
         envFile: path.resolve(process.cwd(), ".env"),
         apiKey: process.env.GEMINI_API_KEY || "",
+        maxTask: 10,
+        maxConcurrency: 5,
+        timeOut: 60 * 1000,
+        query: "",
+        verbose: false,
+        headful: false,
     };
 
     /* Constructor */
@@ -49,7 +61,7 @@ class App {
     }
 
     /* Properties */
-    Logger = new Logger(this.App.UI);
+    Logger = new Logger(this);
     /**@type {AppConfig & EnvConfig} */
     config = {};
 

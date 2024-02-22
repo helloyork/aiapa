@@ -1,6 +1,6 @@
 {
   "name": "aiapa",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "AI Analyzes Products on Amazon",
   "main": "./index.js",
   "scripts": {
