@@ -14,6 +14,14 @@ export const Colors = {
     Navy: "#000080",
 };
 
+export async function askIfInvalid(cur, fun, mes) {
+    if (!cur || (Array.isArray(cur) && cur.length === 0) || (typeof cur === "string" && !cur.length)) {
+        return await fun(mes);
+    } else {
+        return cur;
+    }
+}
+
 /**
  * Prompt for text input.
  * @param {string} message - The message to display to the user.

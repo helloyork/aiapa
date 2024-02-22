@@ -6,10 +6,27 @@ import { loadFile } from "../api/dat.js";
 
 const AMAZON_SEARCH_URL = "https://www.amazon.com/s";
 const Details = {
-    title: "#productTitle",
-    price: "div.a-section > span.a-price > span",
-    sales: "#social-proofing-faceout-title-tk_bought > span",
-    star: "#acrPopover > span > a > span"
+    title: {
+        querySelector: "#productTitle"
+    },
+    price: {
+        querySelector: "div.a-section > span.a-price > span"
+    },
+    sales: {
+        querySelector: "#social-proofing-faceout-title-tk_bought > span",
+        evaluate: (el) => {
+            return el.textContent.trim().replace(/bought in past month$/, "");
+        }
+    },
+    star: {
+        querySelector: "#acrPopover > span > a > span"
+    },
+    reviewNumber: {
+        querySelector: '[data-hook="total-review-count"]',
+        evaluate: (el) => {
+            return el.textContent.trim().replace(" global ratings", "");
+        }
+    },
 };
 
 /**@param {import("../cli.js").App} app */
@@ -52,7 +69,7 @@ export default async function main(app) {
 async function search({ app, browser, page, search }) {
     if (!search && !search.length) {
         let res = await app.UI.input("Pleae type in query to search for:");
-        if (!res) return;
+        if (!res || !res.length) throw new Error("No query provided, please provide by --query <string>");
         app.config.query = search = res;
     }
     let url = new URL(AMAZON_SEARCH_URL);
@@ -72,35 +89,37 @@ async function search({ app, browser, page, search }) {
         links.slice(0, app.config.maxTask).map((link) => async () => {
             return await browser.page(async (page) => {
                 await page.goto(link, { waitUntil: "domcontentloaded", timeout: app.config.timeOut });
+                // scroll to bottom
+                await page.evaluate(() => {
+                    window.scrollTo(0, document.body.scrollHeight);
+                });
+                // app.Logger.info("Catching " + new URL(link).pathname);
+
                 let res = await getDetails({ app, browser, page, search });
                 result.push(res);
+
                 await page.close();
                 bar.increment(1);
             });
         }));
     await pool.start();
+    bar.update(app.config.maxTask);
     bar.stop();
-    app.Logger.log(result);
-
 }
 
 /**
  * @param {{browser: Browser, app: import("../cli.js").App, page: import("puppeteer").Page, search: string}} arg0
  * @param {import("cli-progress").SingleBar} bar
  */
-async function getDetails({ app, page }) {
-    // "Getting details on "+ new URL(page.url()).pathname
-    return await page.evaluate((Details, app) => {
-        app.Logger.verbose("Evaluating details");
-        let out = {};
-        Object.keys(Details).forEach((key) => {
-            let el = page.$(Details[key]);
-            if (el) {
-                out[key] = el.textContent.trim();
-                app.Logger.debug(`Got ${key}: ${out[key]}`);
-            }
-        });
-        app.Logger.verbose(JSON.stringify(out));
-        return out;
-    }, Details, app);
+async function getDetails({ page }) {
+    let details = await Promise.all(Object.keys(Details).map(async (key) => {
+        let element = await page.$(Details[key].querySelector);
+        let value = element ? await page.evaluate(el => Details[key].evalute ? Details[key].evaluate(el) : el.textContent.trim(), element) : "";
+        await element.dispose();
+        return { key, value };
+    })), output = {};
+    details.forEach((detail) => {
+        output[detail.key] = detail.value;
+    });
+    return output;
 }

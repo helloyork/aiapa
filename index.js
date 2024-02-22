@@ -1,9 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * @todo Get Products Details
- * @fix fix the progress bar
- * @fix ok, so the progress bar is not working as expected, it's not updating the progress
+ * @todo get product reviews
  * @todo how about gemini analysis these products?
  */
 

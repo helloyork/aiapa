@@ -10,7 +10,6 @@ export class Browser {
     browser = null;
     constructor(app) {
         this.app = app;
-        this.pages = [];
         this.events = {
             beforePage: []
         };
@@ -44,7 +43,6 @@ export class Browser {
      */
     async page(func) {
         const page = await this.browser.newPage();
-        this.pages.push(page);
         await this.emit(Browser.EventTypes.BEFORE_PAGE, page);
         await func(page);
         return page;
