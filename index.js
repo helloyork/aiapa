@@ -39,7 +39,7 @@ const Options = {
         description: "The path to the .env file",
         defaultValue: ".env",
     },
-    "--max-task <number>": {
+    "--max-task --task <number>": {
         description: "The maximum number of tasks to run",
         defaultValue: 10,
     },
@@ -52,7 +52,7 @@ const Options = {
         defaultValue: 60 * 1000,
     },
     "--query <string>": {
-        description: "The query to search for",
+        description: "The query to search for, for example: laptop",
         defaultValue: "",
     },
     "--verbose": {
@@ -60,7 +60,7 @@ const Options = {
         defaultValue: false,
     },
     "--headful": {
-        description: "Enable headful mode (show browser)",
+        description: "Enable headful mode (show browser if you want to see how the bot works, thats really cool :D",
         defaultValue: false,
     },
 };
@@ -70,8 +70,8 @@ app.registerProgram({
     description: "AI Analyzes Products on Amazon",
     version: "0.1.0",
 })
-    .registerCommands(Commands)
     .registerOptions(Options)
+    .registerCommands(Commands)
     .start();
 
 

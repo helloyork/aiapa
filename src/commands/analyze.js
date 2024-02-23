@@ -93,28 +93,28 @@ async function search({ app, browser, page, search }) {
                 await page.evaluate(() => {
                     window.scrollTo(0, document.body.scrollHeight);
                 });
-                // app.Logger.info("Catching " + new URL(link).pathname);
 
                 let res = await getDetails({ app, browser, page, search });
                 result.push(res);
 
-                await page.close();
                 bar.increment(1);
+                await page.close(); // async
             });
         }));
     await pool.start();
     bar.update(app.config.maxTask);
     bar.stop();
+    app.Logger.info(JSON.stringify(result));
 }
 
 /**
  * @param {{browser: Browser, app: import("../cli.js").App, page: import("puppeteer").Page, search: string}} arg0
  * @param {import("cli-progress").SingleBar} bar
  */
-async function getDetails({ page }) {
+async function getDetails({ app, page }) {
     let details = await Promise.all(Object.keys(Details).map(async (key) => {
         let element = await page.$(Details[key].querySelector);
-        let value = element ? await page.evaluate(el => Details[key].evalute ? Details[key].evaluate(el) : el.textContent.trim(), element) : "";
+        let value = element ? (await page.evaluate((el, evaluate) => evaluate ? evaluate(el) : el.textContent.trim(), element, Details[key]?.evaluate)) : "";
         await element.dispose();
         return { key, value };
     })), output = {};

@@ -1,6 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
-import { randomInt } from "../utils";
+import { randomInt } from "../utils.js";
 
 let UAs = [];
 
