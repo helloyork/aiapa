@@ -24,6 +24,7 @@ const { program, Option } = commander;
  * @property {string} query
  * @property {boolean} verbose
  * @property {boolean} headful
+ * @property {string} output
  */
 /**
  * @typedef EnvConfig
@@ -47,6 +48,7 @@ class App {
         query: "",
         verbose: false,
         headful: false,
+        output: "bin/output.json",
     };
 
     /* Constructor */

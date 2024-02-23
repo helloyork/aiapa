@@ -9,15 +9,10 @@ import { app } from "./src/cli.js";
 
 /**@type {{[key: string]: {name: string, description: string, action?: Function, scriptPath?: string}}} */
 const Commands = {
-    "analyze": {
-        name: "analyze",
-        description: "AI Analysis Amazon Product",
-        scriptPath: "src/commands/analyze.js"
-    },
-    "analyse": {
-        name: "analyse",
-        description: "AI Analysis Amazon Product",
-        scriptPath: "src/commands/analyze.js"
+    "get": {
+        name: "get",
+        description: "get product information from amazon",
+        scriptPath: "src/commands/get.js"
     },
     "test": {
         name: "test",
@@ -31,7 +26,7 @@ const Options = {
         description: "Enable debug mode",
         defaultValue: false,
     },
-    "--key, --api-key <key>": {
+    "-k, --key, --api-key <key>": {
         description: "The API key to use",
         defaultValue: "",
     },
@@ -39,19 +34,19 @@ const Options = {
         description: "The path to the .env file",
         defaultValue: ".env",
     },
-    "--max-task --task <number>": {
-        description: "The maximum number of tasks to run",
+    "-t, --max-task --task <number>": {
+        description: "The maximum number of tasks to run (default 10)",
         defaultValue: 10,
     },
-    "--max-concurrency <number>": {
-        description: "The maximum number of concurrent tasks to run",
+    "-mc, --max-concurrency <number>": {
+        description: "The maximum number of concurrent tasks to run (default 5)(larger = faster but may be banned :(",
         defaultValue: 5,
     },
     "--time-out <number>": {
         description: "The maximum time to wait for a task to complete",
         defaultValue: 60 * 1000,
     },
-    "--query <string>": {
+    "-q, --query <string>": {
         description: "The query to search for, for example: laptop",
         defaultValue: "",
     },
@@ -62,6 +57,10 @@ const Options = {
     "--headful": {
         description: "Enable headful mode (show browser if you want to see how the bot works, thats really cool :D",
         defaultValue: false,
+    },
+    "-o, --output <path>": {
+        description: "The path to the output file",
+        defaultValue: "bin/output.json",
     },
 };
 
