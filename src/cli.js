@@ -25,6 +25,8 @@ const { program, Option } = commander;
  * @property {boolean} verbose
  * @property {boolean} headful
  * @property {string} output
+ * @property {boolean} force
+ * @property {string} binPath
  */
 /**
  * @typedef EnvConfig
@@ -49,6 +51,8 @@ class App {
         verbose: false,
         headful: false,
         output: "bin/output.json",
+        force: false,
+        binPath: "bin",
     };
 
     /* Constructor */
@@ -101,21 +105,28 @@ class App {
      * @property {string} description
      * @property {Function} [action]
      * @property {string} [scriptPath]
+     * @property {{flags: string, description: string, defaultValue?: any}[]} [options]
+     * @property {{[key: string]: CommandConfig}} [children]
      */
     /**
      * Register commands to the program
      * @param {{[key: string]: CommandDefinition}} commands 
      * @returns {this}
      */
-    registerCommands(commands) {
+    registerCommands(commands, parent = this.program) {
         Object.entries(commands).forEach(([name, command]) => {
-            this.program.command(name)
+            const cmd = new commander.Command(name)
                 .description(command.description)
                 .action(async () => {
                     const module = await App.loadScript(command.scriptPath || name);
                     await module.default?.(app);
                     if (command.action) command.action(module);
                 });
+            if (command.options) command.options.forEach(option =>
+                cmd.addOption(new Option(option.flags, option.description, option.defaultValue))
+            );
+            parent.addCommand(cmd);
+            if (command.children) this.registerCommands(command.children, cmd);
         });
         return this;
     }
