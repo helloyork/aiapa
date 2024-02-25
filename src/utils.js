@@ -1,7 +1,17 @@
 import * as cliProgress from "cli-progress";
 
-export function createProgressBar() {
-    return new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
+export function createProgressBar(payload = {}) {
+    return new cliProgress.SingleBar({
+        clearOnComplete: true,
+        ...payload
+    }, cliProgress.Presets.shades_classic);
+}
+
+export function createMultiProgressBar(payload = {}) {
+    return new cliProgress.MultiBar({
+        clearOnComplete: true,
+        ...payload
+    }, cliProgress.Presets.shades_classic);
 }
 
 export class Logger {

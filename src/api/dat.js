@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { randomInt } from "../utils.js";
+import { Parser } from "json2csv";
 
 let UAs = [];
 
@@ -9,7 +10,16 @@ export async function loadFile(filePath, encoding = "utf-8") {
 }
 
 export async function saveFile(filePath, data, encoding = "utf-8") {
-    return await fs.writeFile(path.resolve(process.cwd(), filePath), data, encoding);
+    let _path = path.resolve(process.cwd(), filePath);
+    await fs.writeFile(_path, data, encoding);
+    return _path;
+}
+
+
+export async function saveCSV(filePath, name, data, options = {}) {
+    const savePath = path.join(filePath, `${name}.csv`), csv = new Parser(options).parse(data);
+    await saveFile(savePath, csv);
+    return savePath;
 }
 
 export async function appendFile(filePath, data, encoding = "utf-8") {

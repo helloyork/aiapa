@@ -27,10 +27,32 @@ const { program, Option } = commander;
  * @property {string} output
  * @property {boolean} force
  * @property {string} binPath
+ * @property {number} maxReviews
  */
 /**
  * @typedef EnvConfig
  * @property {string} GEMINI_API_KEY
+ */
+/**
+ * @typedef {Object} ProgramDefinition
+ * @property {string} name
+ * @property {string} description
+ * @property {string} version
+ */
+/**
+ * @typedef {Object} OptionDefinition
+ * @property {string} flags
+ * @property {string} description
+ * @property {any} [defaultValue]
+*/
+/**
+ * @typedef {Object} CommandDefinition
+ * @property {string} name
+ * @property {string} description
+ * @property {Function} [action]
+ * @property {string} [scriptPath]
+ * @property {OptionDefinition[]} [options]
+ * @property {{[key: string]: CommandConfig}} [children]
  */
 class App {
     /* Static */
@@ -40,6 +62,9 @@ class App {
     }
     static Option = Option;
     static UI = ui;
+    static staticConfig = {
+        MAX_TRY: 128,
+    };
     static defaultConfig = {
         debug: false,
         envFile: path.resolve(process.cwd(), ".env"),
@@ -50,9 +75,10 @@ class App {
         query: "",
         verbose: false,
         headful: false,
-        output: "bin/output.json",
+        output: "bin",
         force: false,
         binPath: "bin",
+        maxReviews: 10,
     };
 
     /* Constructor */
@@ -82,12 +108,6 @@ class App {
         return this.App.UI;
     }
     /**
-     * @typedef {Object} ProgramDefinition
-     * @property {string} name
-     * @property {string} description
-     * @property {string} version
-     */
-    /**
      * Register the program
      * @param {ProgramDefinition} param0
      * @returns {this}
@@ -100,31 +120,28 @@ class App {
         return this;
     }
     /**
-     * @typedef {Object} CommandDefinition
-     * @property {string} name
-     * @property {string} description
-     * @property {Function} [action]
-     * @property {string} [scriptPath]
-     * @property {{flags: string, description: string, defaultValue?: any}[]} [options]
-     * @property {{[key: string]: CommandConfig}} [children]
-     */
-    /**
      * Register commands to the program
      * @param {{[key: string]: CommandDefinition}} commands 
      * @returns {this}
      */
     registerCommands(commands, parent = this.program) {
         Object.entries(commands).forEach(([name, command]) => {
-            const cmd = new commander.Command(name)
+            let cmd = new commander.Command(name)
                 .description(command.description)
                 .action(async () => {
-                    const module = await App.loadScript(command.scriptPath || name);
-                    await module.default?.(app);
-                    if (command.action) command.action(module);
+                    this.loadConfigFromArgs(cmd.opts()).loadConfigFromEnv();
+                    try {
+                        const module = await App.loadScript(command.scriptPath || name);
+                        await module.default?.(app);
+                        if (command.action) command.action(module);
+                    } catch (err) {
+                        this.Logger.error("Crashed while executing the command: " + name);
+                        this.Logger.error(err);
+                    }
                 });
-            if (command.options) command.options.forEach(option =>
-                cmd.addOption(new Option(option.flags, option.description, option.defaultValue))
-            );
+            command.options?.forEach(option => {
+                cmd.option(option.flags, option.description, option.defaultValue);
+            });
             parent.addCommand(cmd);
             if (command.children) this.registerCommands(command.children, cmd);
         });
@@ -146,13 +163,12 @@ class App {
         this.config = { ...App.defaultConfig, ...this.config, ...(parsed ? parsed.parsed : {}) };
         return this;
     }
-    loadConfigFromArgs() {
-        this.config = { ...App.defaultConfig, ...this.config, ...this.options };
+    loadConfigFromArgs(options) {
+        this.config = { ...App.defaultConfig, ...this.config, ...this.options, ...options };
         return this;
     }
     start() {
         this.program.parse(process.argv);
-        this.loadConfigFromArgs().loadConfigFromEnv();
         return this;
     }
 }
