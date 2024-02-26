@@ -106,12 +106,19 @@ const Details = {
  * @property {string} content
  */
 /**
+ * @typedef {Object} Specificantions
+ * @property {string[]} size
+ * @property {string[]} style
+ * @property {string[]} color
+ * @property {string[]} pattern
+ */
+/**
  * @typedef {Object} ProductDetails
  * @property {string} title
  * @property {string} price
  * @property {string} sales
  * @property {string} star
- * @property {string[]} specificantions
+ * @property {Specificantions} specificantions
  * @property {number} reviewNumber
  * @property {string} productsReviewLink
  */
