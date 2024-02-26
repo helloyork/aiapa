@@ -1,63 +1,69 @@
+```markdown
 # AIAPA
 
-An Amazon product analysis tool using Gemini
+An Amazon product analysis tool, using Gemini.
 
-get product data
+Fetch product data.
 
 ## Installation
 
-
-
-It is already possible to download product data via the command line or commands ## via the command line.
-
-Start a task by typing ```aiapa get``` on the command line.
-
-Add -h after the command to get help.
-
-An example task, search for laptop and download 20 products (sorted by Best Seller), up to 10 tasks in parallel, download the first 50 reviews and output to ". /output"
+You can now download product data via command line or instructions.
 
 ```sh
-aiapa get -q laptop -t 20 -mc 10 -r 5 -o ". /output"
+npm i aiapa -g
 ```
 
-Wait for the program to run and finally look for the output folder in the current directory
+### Via Command Line
 
-### By code
+Enter `aiapa get` in the command line to start a task.
 
-Since the package is based on ESM, the package won't run on CJS! Maybe I'll figure it out later (maybe)
+Add `-h` after the command to get command help.
 
-Get the import from aiapa and run the task!
+Here is an example task: search for "laptop" and download information for 20 products (sorted by Best Seller), with a maximum of 10 concurrent tasks, download the first 50 reviews, and finally output to "./output".
+
+```sh
+aiapa get -q laptop -t 20 -mc 10 -r 5 -o "./output"
+```
+
+Wait for the program to run, and finally check the "output" folder in the current directory.
+
+### Via Code
+
+Since this package is based on ESM, it cannot run on CJS! Maybe I will find a way in the future (in the future).
+
+Import from aiapa and run the task!
 
 ```javascript
-import { app, Commands } from "aiapa".
+import { app, Commands } from "aiapa";
 
-app.setUserConfig({ // Make configurations that are equivalent to the command line above
+app.setUserConfig({ // Set the configuration, these configurations are equivalent to the above command line
     query: "laptop",
-    maxTask: 20, maxConcurrency: 10
-    maxConcurrency: 10, maxReviews: 5,
+    maxTask: 20,
+    maxConcurrency: 10,
     maxReviews: 5,
-    output: ". /output"
+    output: "./output"
 })
-    .load() // load the configuration
+    .load() // Load the configuration
     .run(Commands.get); // Start!
 
-// If you want to get the results after the run is complete, you can extend the command
+// If you want to get the result after the run is complete, you can extend the command
 app.run({
-    . .Commands.get
+    ...Commands.get,
     action: async function(result){
         console.log(result);
     }
-}).
+});
 ```
 
 Currently supported commands: get, bin, bin clear
 
-## Contribute
+## Contribution
 
 Contributions to the repository are welcome!
 
 ## License
 
-** Don't use it for anything illegal! Consequences are at your own risk! **
+**Do not use it for any illegal activities! You are responsible for the consequences!**
 
-> Use the MIT license
+> Licensed under MIT
+```
