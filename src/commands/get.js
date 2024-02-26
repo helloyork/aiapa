@@ -7,7 +7,13 @@ const AMAZON_SEARCH_URL = "https://www.amazon.com/s";
 const config = {
     blockedResourceTypes: ["image", "font", "stylesheet"],
 };
-
+/**
+ * @typedef {Object} ElementSelector
+ * @property {string|string[]} [querySelector]
+ * @property {Object.<string, ElementSelector>} [querySelectors]
+ * @property {function(Element|Object.<string, Element|Element[]>): any} [evaluate]
+ */
+/**@type {{[key: string]: string}}*/
 const Selector = {
     title: "#productTitle",
     price: "div.a-section > span.a-price > span",
@@ -21,7 +27,12 @@ const Selector = {
     reviewStarRating: "i[data-hook=\"review-star-rating\"]",
     reviewDate: "span[data-hook=\"review-date\"]",
     reviewBody: "span[data-hook=\"review-body\"]",
+    specificantionsSize: "#variation_size_name ul li",
+    specificantionsStyle: "#variation_style_name ul li",
+    specificantionsColor: "#variation_color_name ul li",
+    specificantionsPattern: "#variation_pattern_name ul li",
 };
+/**@type {{[key: string]: ElementSelector}}*/
 const Details = {
     title: {
         querySelector: Selector.title
@@ -33,6 +44,41 @@ const Details = {
         querySelector: Selector.sales,
         evaluate: (el) => {
             return el.textContent.trim();
+        }
+    },
+    specificantions: {
+        querySelectors: {
+            size: {
+                querySelector: [Selector.specificantionsSize],
+                evaluate: (els) => {
+                    if(!els) return "";
+                    return Array.from(els).map((el) => el.textContent.replace(/\n/g, "")
+                        .replace(" ".repeat(64), "\n").trim());
+                }
+            },
+            style: {
+                querySelector: [Selector.specificantionsStyle],
+                evaluate: (els) => {
+                    if(!els) return "";
+                    return Array.from(els).map((el) => {
+                        let res = el.textContent.replace(/\n/g, "").trim();
+                        if(el.querySelector("img").src) res += " " + el.querySelector("img").src;
+                        if(el.querySelector("img").alt) res += " " + el.querySelector("img").alt;
+                        return res;
+                    });
+                }
+            },
+            pattern: {
+                querySelector: [Selector.specificantionsPattern],
+                evaluate: (el) => {
+                    return [];
+                }
+            }
+        },
+        evaluate: ({size, style, pattern}) => {
+            return {
+                size, style, pattern
+            };
         }
     },
     star: {
@@ -65,6 +111,7 @@ const Details = {
  * @property {string} price
  * @property {string} sales
  * @property {string} star
+ * @property {string[]} specificantions
  * @property {number} reviewNumber
  * @property {string} productsReviewLink
  */
@@ -97,11 +144,12 @@ export default async function main(app) {
             return await search({ browser, page, search: app.config.query, app, });
         });
         app.Logger.info("Saving to file...");
-        let path = await saveCSV(app.config.output, `${app.config.query}-result-${Date.now()}`, convertToResult(result), {
-            header: true
-        });
-        let jsonPath = await saveFile(joinPath(app.config.output, `${app.config.query}-result-${Date.now()}.json`), JSON.stringify(result));
-        app.Logger.log("Saved to file: " + path);
+        let time = Date.now();
+        // let path = await saveCSV(app.config.output, `${app.config.query}-result-${time}`, convertToResult(result), {
+        //     header: true
+        // });
+        let jsonPath = await saveFile(joinPath(app.config.output, `${app.config.query}-result-${time}.json`), JSON.stringify(result));
+        // app.Logger.log("Saved to file: " + path);
         app.Logger.log("Saved to file: " + jsonPath);
 
     } catch (error) {
@@ -135,6 +183,7 @@ function convertToResult(products) {
  * @returns {Promise<Product[]>}
  */
 export async function search({ app, browser, page, search }) {
+    await browser.blockResources(page, config.blockedResourceTypes);
     if (!search && !search.length) {
         let res = await app.UI.input("Pleae type in query to search for:");
         if (!res || !res.length) throw new Error("No query provided, please provide by --query <string>");
@@ -145,12 +194,12 @@ export async function search({ app, browser, page, search }) {
     url.searchParams.append("s", "exact-aware-popularity-rank");
     url.searchParams.append("page", "1");
 
-    await page.goto(url.href, { timeout: app.config.timeOut });
-    await page.waitForFunction(() => document.title.includes("Amazon.com"), { timeout: app.config.timeOut });
-
     let links = [], tried = 0;
     while (links.length < app.config.maxTask) {
         url.searchParams.set("page", ++tried);
+        
+        await page.goto(url.href, { timeout: app.config.timeOut });
+        await page.waitForFunction(() => document.title.includes("Amazon.com"), { timeout: app.config.timeOut });
 
         await browser.scrowDown(page);
         if (tried > app.App.staticConfig.MAX_TRY) {
@@ -163,8 +212,6 @@ export async function search({ app, browser, page, search }) {
                     return el.evaluate(node => node.href);
                 })
         ))];
-        await page.goto(url.href, { timeout: app.config.timeOut });
-        await page.waitForFunction(() => document.title.includes("Amazon.com"), { timeout: app.config.timeOut });
 
         app.Logger.verbose(`Found ${links.length} links`);
     }
@@ -175,7 +222,7 @@ export async function search({ app, browser, page, search }) {
     bar.start(app.config.maxTask, 0);
 
     let products = [], pool = new TaskPool(app.config.maxConcurrency, 1).addTasks(
-        links.slice(0, app.config.maxTask).map((link) => async () => {
+        links.slice(0, Number(app.config.maxTask)).map((link) => async () => {
             return await browser.page(async (page) => {
                 await browser.blockResources(page, config.blockedResourceTypes);
                 await page.goto(link, { timeout: app.config.timeOut }); // waitUntil: "networkidle2", 
@@ -212,12 +259,12 @@ export async function search({ app, browser, page, search }) {
  * @param {import("cli-progress").SingleBar} bar
  * @returns {Promise<ProductDetails>}
  */
-async function getDetails({ page }) {
+async function getDetails({ browser, page }) {
     let details = await Promise.all(Object.keys(Details).map(async (key) => {
-        let element = await page.$(Details[key].querySelector);
-        let value = element ? await page.evaluate(Details[key]?.evaluate || ((el) => el.textContent.trim()), element) : "";
-        await element.dispose();
-        return { key, value };
+        return {
+            key,
+            value: await browser.select(page, Details[key])
+        }
     }));
     let output = {};
     details.forEach((detail) => {
@@ -251,7 +298,7 @@ async function searchReviews({ app, browser, page, search }, bar, datas) {
  * @returns {Promise<Review[]>}
  */
 async function getReviews({ browser, app }, bar, data) {
-    if(app.config.maxReviews > 10) {
+    if (app.config.maxReviews > 10) {
         app.Logger.warn("Can't get more than 10 pages of reviews, setting to 10");
         app.config.maxReviews = 10;
     }

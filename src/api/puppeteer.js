@@ -1,4 +1,4 @@
-import puppeteer from "puppeteer";
+import puppeteer, { Page } from "puppeteer";
 
 import { Rejected } from "../utils.js";
 
@@ -6,6 +6,7 @@ export class Browser {
     static EventTypes = {
         BEFORE_PAGE: "beforePage",
     };
+    static defaultSelectHanlder = (el) => el.textContent.trim();
     /**@type {import("puppeteer").Browser} */
     browser = null;
     constructor(app) {
@@ -15,7 +16,7 @@ export class Browser {
         };
     }
     async emit(event, ...args) {
-        if(this.events[event]) {
+        if (this.events[event]) {
             await Promise.all(this.events[event].map(func => func(...args)));
         }
     }
@@ -62,6 +63,25 @@ export class Browser {
         return await page.evaluate(() => {
             window.scrollBy(0, window.innerHeight);
         });
+    }
+    /**
+     * 
+     * @param {Page} page 
+     * @param {import("../commands/get.js").ElementSelector} selector 
+     */
+    async select(page, selector) {
+        if (selector.querySelector) {
+            if (Array.isArray(selector.querySelector)) {
+                return await page.$$eval(selector.querySelector[0], selector.evaluate || Browser.defaultSelectHanlder);
+            }
+            return await page.$eval(selector.querySelector, selector.evaluate || Browser.defaultSelectHanlder);
+        }
+        let res = {};
+        await Promise.all(Object.keys(selector.querySelectors).map(async key => {
+            res[key] = await this.select(page, selector.querySelectors[key]);
+        }));
+        await page.evaluate(selector.evaluate || ((el) => el[0].textContent.trim()), res);
+        return res;
     }
 }
 

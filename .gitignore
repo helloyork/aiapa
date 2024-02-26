@@ -9,6 +9,7 @@
 /build
 /bin
 /test/bin
+/output
 
 .idea
 *.iml

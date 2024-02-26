@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 
 /**
- * @todo get product reviews
+ * @fix cant save as json
+ * @fix sub command
+ * @todo save as csv
+ * @todo correct specification
  * @todo how about gemini analysis these products?
  */
 
@@ -109,7 +112,7 @@ export const Commands = {
 app.registerProgram({
     name: "AIAPA",
     description: "AI Analyzes Products on Amazon",
-    version: "0.1.0",
+    version: "0.1.2",
 })
     .registerCommands(Commands);
 
