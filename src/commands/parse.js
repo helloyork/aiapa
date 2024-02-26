@@ -24,7 +24,7 @@ const Details = {
         querySelector: "#acrPopover > span > a > span"
     },
     reviewNumber: {
-        querySelector: '[data-hook="total-review-count"]',
+        querySelector: "[data-hook=\"total-review-count\"]",
         evaluate: (el) => {
             return el.text().trim().replace(" global ratings", "");
         }

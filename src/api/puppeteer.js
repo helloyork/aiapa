@@ -24,6 +24,16 @@ export class Browser {
         this.events.beforePage.push(func);
         return this;
     }
+    async blockResources(page, types) {
+        await page.setRequestInterception(true);
+        page.on("request", (request) => {
+            if (types.includes(request.resourceType())) {
+                request.abort();
+            } else {
+                request.continue();
+            }
+        });
+    }
     /**@param {import("puppeteer").PuppeteerLaunchOptions} options */
     async launch(options) {
         this.browser = await puppeteer.launch(options);
@@ -39,16 +49,19 @@ export class Browser {
     }
     /**
      * @param {function(import("puppeteer").Page):Promise} func
-     * @returns {Promise<import("puppeteer").Page>}
      */
     async page(func) {
         const page = await this.browser.newPage();
         await this.emit(Browser.EventTypes.BEFORE_PAGE, page);
-        await func(page);
-        return page;
+        return await func(page);
     }
     async close() {
         await this.browser.close();
+    }
+    async scrowDown(page) {
+        return await page.evaluate(() => {
+            window.scrollBy(0, window.innerHeight);
+        });
     }
 }
 

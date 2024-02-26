@@ -1,7 +1,21 @@
 import * as cliProgress from "cli-progress";
 
-export function createProgressBar() {
-    return new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
+export function createProgressBar(payload = {}) {
+    return new cliProgress.SingleBar({
+        clearOnComplete: true,
+        barCompleteChar: "=",
+        barIncompleteChar: "-",
+        ...payload
+    }, cliProgress.Presets.shades_classic);
+}
+
+export function createMultiProgressBar(payload = {}) {
+    return new cliProgress.MultiBar({
+        clearOnComplete: true,
+        barCompleteChar: "=",
+        barIncompleteChar: "-",
+        ...payload
+    }, cliProgress.Presets.shades_classic);
 }
 
 export class Logger {
@@ -24,6 +38,11 @@ export class Logger {
                 colorMessage: (v) => this.app.UI.hex(this.app.UI.Colors.Navy)(v),
                 name: "DEBUG"
             },
+            WARN: {
+                color: this.app.UI.Colors.Yellow,
+                colorMessage: (v) => this.app.UI.hex(this.app.UI.Colors.Yellow)(v),
+                name: "WARN"
+            },
             LOG: {
                 color: this.app.UI.Colors.White,
                 name: "LOG"
@@ -43,6 +62,7 @@ export class Logger {
         INFO: "INFO",
         ERROR: "ERROR",
         DEBUG: "DEBUG",
+        WARN: "WARN",
         LOG: "LOG",
         VERBOSE: "VERBOSE",
         UNKNOWN: "UNKNOWN"
@@ -55,6 +75,9 @@ export class Logger {
             if (typeof message !== "string") message = JSON.stringify(message);
         } catch { /* empty */ }
         console.log(this.generate({ level: this.Levels.LOG, message }));
+    }
+    warn(message) {
+        console.warn(this.generate({ level: this.Levels.WARN, message }));
     }
     info(message) {
         console.log(this.generate({ level: this.Levels.INFO, message }));
