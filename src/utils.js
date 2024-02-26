@@ -3,6 +3,8 @@ import * as cliProgress from "cli-progress";
 export function createProgressBar(payload = {}) {
     return new cliProgress.SingleBar({
         clearOnComplete: true,
+        barCompleteChar: "=",
+        barIncompleteChar: "-",
         ...payload
     }, cliProgress.Presets.shades_classic);
 }
@@ -10,6 +12,8 @@ export function createProgressBar(payload = {}) {
 export function createMultiProgressBar(payload = {}) {
     return new cliProgress.MultiBar({
         clearOnComplete: true,
+        barCompleteChar: "=",
+        barIncompleteChar: "-",
         ...payload
     }, cliProgress.Presets.shades_classic);
 }

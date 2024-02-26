@@ -13,7 +13,8 @@ export default async function main(app) {
         app.Logger.warn("Force mode enabled, no confirmation will be asked");
     }
     app.Logger.info("Clearing directory");
-    await clearDirectory(app.config.binPath, (file) => {
+    app.Logger.info(`Directory: ${app.App.getFilePath(app.config.binPath)}`);
+    await clearDirectory(app.App.getFilePath(app.config.binPath), (file) => {
         app.Logger.info(`Deleted ${file}`);
     });
     app.Logger.info("Directory cleared");

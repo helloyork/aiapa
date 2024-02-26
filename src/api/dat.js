@@ -9,15 +9,25 @@ export async function loadFile(filePath, encoding = "utf-8") {
     return await fs.readFile(path.resolve(process.cwd(), filePath), encoding);
 }
 
+export function joinPath(...paths) {
+    return path.join(...paths);
+}
+
+export async function createDirIfNotExists(dirPath) {
+    if (!await directoryExists(dirPath)) {
+        await fs.mkdir(path.resolve(process.cwd(), dirPath), { recursive: true });
+    }
+}
+
 export async function saveFile(filePath, data, encoding = "utf-8") {
+    await createDirIfNotExists(path.dirname(filePath));
     let _path = path.resolve(process.cwd(), filePath);
     await fs.writeFile(_path, data, encoding);
     return _path;
 }
 
-
 export async function saveCSV(filePath, name, data, options = {}) {
-    const savePath = path.join(filePath, `${name}.csv`), csv = new Parser(options).parse(data);
+    const savePath = path.join(process.cwd(), filePath, `${name}.csv`), csv = new Parser(options).parse(data);
     await saveFile(savePath, csv);
     return savePath;
 }
@@ -50,9 +60,9 @@ export async function directoryExists(dirPath) {
 
 export async function clearDirectory(dirPath, whenDeleted = () => { }) {
     if (await directoryExists(dirPath)) {
-        const files = await fs.readdir(path.resolve(process.cwd(), dirPath));
+        const files = await fs.readdir(dirPath);
         for (const file of files) {
-            const filePath = path.resolve(process.cwd(), dirPath, file);
+            const filePath = path.resolve(dirPath, file);
             const stats = await fs.stat(filePath);
             if (stats.isDirectory()) {
                 await clearDirectory(filePath, whenDeleted);

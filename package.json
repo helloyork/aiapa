@@ -6,7 +6,7 @@
   "scripts": {
     "test": "node index.js"
   },
-  "author": "",
+  "author": "helloyork",
   "license": "MIT",
   "type": "module",
   "dependencies": {
@@ -17,7 +17,6 @@
     "dotenv": "^16.4.5",
     "inquirer": "^9.2.15",
     "json2csv": "^6.0.0-alpha.2",
-    "papaparse": "^5.4.1",
     "puppeteer": "^22.1.0"
   }
 }

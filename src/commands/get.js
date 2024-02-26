@@ -1,8 +1,7 @@
-import path from "path";
 
 import { Browser } from "../api/puppeteer.js";
 import { TaskPool, randomInt, createProgressBar, createMultiProgressBar } from "../utils.js";
-import { loadFile, saveCSV, saveFile } from "../api/dat.js";
+import { loadFile, saveCSV, saveFile, joinPath } from "../api/dat.js";
 
 const AMAZON_SEARCH_URL = "https://www.amazon.com/s";
 const config = {
@@ -76,12 +75,12 @@ const Details = {
 
 /**@param {import("../cli.js").App} app */
 export default async function main(app) {
-    let browser = new Browser(app), startTime = Date.now();
+    let browser = new Browser(app), startTime = Date.now(), result;
 
     app.Logger.info("Launching browser");
     try {
         app.Logger.verbose("Loading user agents");
-        const UAs = (await loadFile("src/dat/user-agents.txt"))
+        const UAs = (await loadFile(app.App.getFilePath("./dat/user-agents.txt")))
             .split("\n")
             .map((ua) => ua.trim())
             .filter((ua) => ua.length > 0);
@@ -94,16 +93,16 @@ export default async function main(app) {
             await page.setUserAgent(UAs[randomInt(0, UAs.length - 1)]);
         });
 
-        let result = await browser.page(async (page) => {
+        result = await browser.page(async (page) => {
             return await search({ browser, page, search: app.config.query, app, });
         });
         app.Logger.info("Saving to file...");
         let path = await saveCSV(app.config.output, `${app.config.query}-result-${Date.now()}`, convertToResult(result), {
             header: true
         });
-        let jsonPath = await saveFile("bin/result.json", JSON.stringify(result)); // debug
+        let jsonPath = await saveFile(joinPath(app.config.output, `${app.config.query}-result-${Date.now()}.json`), JSON.stringify(result));
         app.Logger.log("Saved to file: " + path);
-        app.Logger.log("Saved to file: " + jsonPath); // debug
+        app.Logger.log("Saved to file: " + jsonPath);
 
     } catch (error) {
         app.Logger.error("An error occurred");
@@ -114,23 +113,26 @@ export default async function main(app) {
     }
     app.Logger.log(`Time elapsed: ${(Date.now() - startTime) / 1000}s`);
 
-
+    return result;
 }
 
 /**
  * @param {Product[]} products 
  */
 function convertToResult(products) {
-    return products.map((product) => {
-        return {
-            ...product,
-            reviews: JSON.stringify(product.reviews),
-        };
+    return products.flatMap((product) => {
+        return product.reviews.map((review) => {
+            return {
+                ...product,
+                reviews: review,
+            };
+        });
     });
 }
 
 /**
  * @param {{browser: Browser, app: import("../cli.js").App, page: import("puppeteer").Page, search: string}} arg0
+ * @returns {Promise<Product[]>}
  */
 export async function search({ app, browser, page, search }) {
     if (!search && !search.length) {
@@ -208,6 +210,7 @@ export async function search({ app, browser, page, search }) {
 /**
  * @param {{browser: Browser, app: import("../cli.js").App, page: import("puppeteer").Page, search: string}} arg0
  * @param {import("cli-progress").SingleBar} bar
+ * @returns {Promise<ProductDetails>}
  */
 async function getDetails({ page }) {
     let details = await Promise.all(Object.keys(Details).map(async (key) => {
@@ -284,8 +287,9 @@ async function getReviews({ browser, app }, bar, data) {
                 return output;
             }));
             reviews.push(...reviewDatas);
+            let txt = data.title.length > maxTitleLength ? data.title.slice(0, maxTitleLength - endStr.length) + endStr : data.title;
             childBar.increment(1, {
-                title: data.title.length > maxTitleLength ? data.title.slice(0, maxTitleLength - endStr.length) + endStr : data.title,
+                title: txt,
             });
             currentPage++;
         }

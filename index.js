@@ -5,6 +5,9 @@
  * @todo how about gemini analysis these products?
  */
 
+import { realpathSync } from "fs";
+import { pathToFileURL } from "url";
+
 import { app } from "./src/cli.js";
 
 /**@type {{[ket: string]: import("./src/cli.js").OptionDefinition}} */
@@ -66,23 +69,23 @@ const Options = {
 };
 
 
-/**@type {import("./src/cli.js").CommandDefinition} */
-const Commands = {
+/**@type {{[key: string]: import("./src/cli.js").CommandDefinition}} */
+export const Commands = {
     "get": {
         name: "get",
         description: "get product information from amazon",
-        scriptPath: "src/commands/get.js",
+        scriptPath: "./commands/get.js",
         options: [Options.query, Options.output, Options.maxTask, Options.maxConcurrency, Options.timeOut, Options.headful, Options.debug, Options.envFile, Options.verbose, Options.apiKey, Options.maxReviews],
     },
     "bin": {
         name: "bin",
         description: "bin methods",
-        scriptPath: "src/commands/bin.js",
+        scriptPath: "./commands/bin.js",
         children: {
-            "clear": {
-                name: "clear",
-                description: "Clear the bin",
-                scriptPath: "src/commands/bin/clear.js",
+            "clean": {
+                name: "clean",
+                description: "Clean the bin",
+                scriptPath: "./commands/bin/clean.js",
                 options: [Options.force, Options.debug]
             }
         },
@@ -90,12 +93,12 @@ const Commands = {
     "test": {
         name: "test",
         description: "Test the program",
-        scriptPath: "src/commands/test.js",
+        scriptPath: "./commands/test.js",
         children: {
             "sub": {
                 name: "sub",
                 description: "A sub command",
-                scriptPath: "src/commands/test.js",
+                scriptPath: "./commands/test.js",
             }
         },
         options: [Options.debug]
@@ -108,10 +111,15 @@ app.registerProgram({
     description: "AI Analyzes Products on Amazon",
     version: "0.1.0",
 })
-    .registerCommands(Commands)
-    .start();
+    .registerCommands(Commands);
 
 
+if (import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
+    app.start();
+}
 
+export {
+    app,
+};
 
 
