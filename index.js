@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 
 /**
- * @todo get product reviews
+ * @fix size too many space
+ * @todo save as csv
+ * @todo correct specification
  * @todo how about gemini analysis these products?
  */
 
@@ -75,7 +77,7 @@ export const Commands = {
         name: "get",
         description: "get product information from amazon",
         scriptPath: "./commands/get.js",
-        options: [Options.query, Options.output, Options.maxTask, Options.maxConcurrency, Options.timeOut, Options.headful, Options.debug, Options.envFile, Options.verbose, Options.apiKey, Options.maxReviews],
+        options: [Options.query, Options.output, Options.maxTask, Options.maxConcurrency, Options.timeOut, Options.headful, Options.debug, Options.verbose, Options.maxReviews],
     },
     "bin": {
         name: "bin",
@@ -87,7 +89,13 @@ export const Commands = {
                 description: "Clean the bin",
                 scriptPath: "./commands/bin/clean.js",
                 options: [Options.force, Options.debug]
-            }
+            },
+            "clear": {
+                name: "clear",
+                description: "Clean the bin",
+                scriptPath: "./commands/bin/clean.js",
+                options: [Options.force, Options.debug]
+            },
         },
     },
     "test": {
@@ -109,7 +117,7 @@ export const Commands = {
 app.registerProgram({
     name: "AIAPA",
     description: "AI Analyzes Products on Amazon",
-    version: "0.1.0",
+    version: "0.1.3",
 })
     .registerCommands(Commands);
 

@@ -1,4 +1,5 @@
 import * as cliProgress from "cli-progress";
+export { EventEmitter } from "events";
 
 export function createProgressBar(payload = {}) {
     return new cliProgress.SingleBar({
@@ -103,6 +104,7 @@ export class TaskPool {
         this.delayBetweenTasks = delayBetweenTasks;
         this.taskQueue = [];
         this.running = false;
+        this.allTasksDone = null;
     }
     addTask(asyncTask) {
         this.taskQueue.push(asyncTask);
@@ -114,13 +116,20 @@ export class TaskPool {
     }
     start() {
         this.running = true;
+        this.allTasksDone = new Promise(resolve => this.allTasksDoneResolve = resolve);
+        this.runTasks();
+        return this.allTasksDone;
+    }
+    runTasks() {
         let tasksPromises = [];
         for (let i = 0; i < this.maxConcurrent && this.taskQueue.length > 0; i++) {
             tasksPromises.push(this.executeNextTask());
         }
-        return Promise.allSettled(tasksPromises).then(() => {
+        Promise.allSettled(tasksPromises).then(() => {
             if (this.taskQueue.length > 0) {
-                return this.start();
+                this.runTasks();
+            } else {
+                this.allTasksDoneResolve();
             }
         });
     }
