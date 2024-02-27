@@ -3,7 +3,9 @@
 
 An Amazon product analysis tool, using Gemini.
 
-Fetch product data.
+Now it can fetch data from amazon
+
+If you run a task with Option: 5 max concurrency, full review-fetch task and 30 products, it will cost you **3~4 GB** of RAM.
 
 ## Installation
 

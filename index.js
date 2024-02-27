@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * @fix size too many space
+ * @todo low ram mode
  * @todo save as csv
  * @todo correct specification
  * @todo how about gemini analysis these products?
