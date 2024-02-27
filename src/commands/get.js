@@ -16,7 +16,7 @@ const config = {
 /**@type {{[key: string]: string}}*/
 const Selector = {
     title: "#productTitle",
-    price: "div.a-section > span.a-price > span",
+    price: "#corePrice_feature_div span.a-price > span",
     sales: "#social-proofing-faceout-title-tk_bought > span",
     star: "#acrPopover > span > a > span",
     reviewNumber: "[data-hook=\"total-review-count\"]",
@@ -34,11 +34,19 @@ const Selector = {
 };
 /**@type {{[key: string]: ElementSelector}}*/
 const Details = {
+    href: {
+        evaluate: () => {
+            return location.href;
+        }
+    },
     title: {
         querySelector: Selector.title
     },
     price: {
-        querySelector: Selector.price
+        querySelector: Selector.price,
+        evaluate: (el) => {
+            return el.textContent.trim() + document.querySelectorAll("#corePrice_desktop .aok-relative")[0].textContent.trim();
+        }
     },
     sales: {
         querySelector: Selector.sales,
@@ -62,16 +70,17 @@ const Details = {
                     if(!els) return "";
                     return Array.from(els).map((el) => {
                         let res = el.textContent.replace(/\n/g, "").trim();
+                        if(el.querySelector("img").alt) res += `(${el.querySelector("img").alt})`;
                         if(el.querySelector("img").src) res += " " + el.querySelector("img").src;
-                        if(el.querySelector("img").alt) res += " " + el.querySelector("img").alt;
                         return res;
                     });
                 }
             },
             pattern: {
                 querySelector: [Selector.specificantionsPattern],
-                evaluate: (el) => {
-                    return [];
+                evaluate: (els) => {
+                    if(!els) return "";
+                    return Array.from(els).map((el) => el.textContent.replace(" ".repeat(32), "").trim());
                 }
             }
         },
@@ -114,6 +123,7 @@ const Details = {
  */
 /**
  * @typedef {Object} ProductDetails
+ * @property {string} href
  * @property {string} title
  * @property {string} price
  * @property {string} sales
@@ -308,6 +318,9 @@ async function getReviews({ browser, app }, bar, data) {
     if (app.config.maxReviews > 10) {
         app.Logger.warn("Can't get more than 10 pages of reviews, setting to 10");
         app.config.maxReviews = 10;
+    }
+    if(app.config.maxReviews <= 0) {
+        return [];
     }
     let childBar = bar.create(app.config.maxReviews, 0), pageUrl = new URL(data.productsReviewLink), currentPage = 1, reviews = [],
         maxTitleLength = 12, endStr = "...";

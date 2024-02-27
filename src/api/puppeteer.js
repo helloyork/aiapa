@@ -75,13 +75,16 @@ export class Browser {
                 return await page.$$eval(selector.querySelector[0], selector.evaluate || Browser.defaultSelectHanlder);
             }
             return await page.$eval(selector.querySelector, selector.evaluate || Browser.defaultSelectHanlder);
+        } else if (selector.querySelectors) {
+            let res = {};
+            await Promise.all(Object.keys(selector.querySelectors).map(async key => {
+                res[key] = await this.select(page, selector.querySelectors[key]);
+            }));
+            await page.evaluate(selector.evaluate || ((el) => el[0].textContent.trim()), res);
+            return res;
+        } else if (selector.evaluate) {
+            return await page.evaluate(selector.evaluate);
         }
-        let res = {};
-        await Promise.all(Object.keys(selector.querySelectors).map(async key => {
-            res[key] = await this.select(page, selector.querySelectors[key]);
-        }));
-        await page.evaluate(selector.evaluate || ((el) => el[0].textContent.trim()), res);
-        return res;
     }
 }
 
