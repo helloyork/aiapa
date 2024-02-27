@@ -117,7 +117,7 @@ export const Commands = {
 app.registerProgram({
     name: "AIAPA",
     description: "AI Analyzes Products on Amazon",
-    version: "0.1.2",
+    version: "0.1.3",
 })
     .registerCommands(Commands);
 

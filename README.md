@@ -1,4 +1,4 @@
-```markdown
+
 # AIAPA
 
 An Amazon product analysis tool, using Gemini.

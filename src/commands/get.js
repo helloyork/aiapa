@@ -1,7 +1,7 @@
 
 import { Browser } from "../api/puppeteer.js";
 import { TaskPool, randomInt, createProgressBar, createMultiProgressBar } from "../utils.js";
-import { loadFile, saveCSV, saveFile, joinPath } from "../api/dat.js";
+import { loadFile, saveFile, joinPath } from "../api/dat.js";
 
 const AMAZON_SEARCH_URL = "https://www.amazon.com/s";
 const config = {
@@ -20,6 +20,7 @@ const Selector = {
     sales: "#social-proofing-faceout-title-tk_bought > span",
     star: "#acrPopover > span > a > span",
     reviewNumber: "[data-hook=\"total-review-count\"]",
+    totalRate:"[data-hook=\"rating-out-of-text\"]",
     productsReviewLink: "[data-hook=\"see-all-reviews-link-foot\"]",
     queryLinks: "div[data-cy=title-recipe] > h2 > a",
     reviews: "div[data-hook=\"review\"]",
@@ -45,12 +46,14 @@ const Details = {
     price: {
         querySelector: Selector.price,
         evaluate: (el) => {
-            return el.textContent.trim() + document.querySelectorAll("#corePrice_desktop .aok-relative")[0].textContent.trim();
+            if (!el) return "";
+            return el.textContent.trim() + (document.querySelectorAll("#corePrice_desktop .aok-relative")[0]?.textContent.trim() || "");
         }
     },
     sales: {
         querySelector: Selector.sales,
         evaluate: (el) => {
+            if (!el) return "";
             return el.textContent.trim();
         }
     },
@@ -59,7 +62,7 @@ const Details = {
             size: {
                 querySelector: [Selector.specificantionsSize],
                 evaluate: (els) => {
-                    if(!els) return "";
+                    if (!els || (Array.isArray(els) && !els.length)) return [];
                     return Array.from(els).map((el) => el.textContent.replace(/\n/g, "")
                         .replace(" ".repeat(64), "\n").trim());
                 }
@@ -67,11 +70,14 @@ const Details = {
             style: {
                 querySelector: [Selector.specificantionsStyle],
                 evaluate: (els) => {
-                    if(!els) return "";
+                    if (!els || (Array.isArray(els) && !els.length)) return [];
                     return Array.from(els).map((el) => {
                         let res = el.textContent.replace(/\n/g, "").trim();
-                        if(el.querySelector("img").alt) res += `(${el.querySelector("img").alt})`;
-                        if(el.querySelector("img").src) res += " " + el.querySelector("img").src;
+                        if (el.querySelector("img")) {
+                            let img = el.querySelector("img");
+                            if (img.alt) res += `(${img.alt})`;
+                            if (img.src) res += " " + img.src;
+                        }
                         return res;
                     });
                 }
@@ -79,30 +85,56 @@ const Details = {
             pattern: {
                 querySelector: [Selector.specificantionsPattern],
                 evaluate: (els) => {
-                    if(!els) return "";
+                    if (!els || (Array.isArray(els) && !els.length)) return [];
                     return Array.from(els).map((el) => el.textContent.replace(" ".repeat(32), "").trim());
                 }
             }
         },
-        evaluate: ({size, style, pattern}) => {
+        evaluate: ({ size, style, pattern }) => {
             return {
                 size, style, pattern
             };
         }
     },
     star: {
-        querySelector: Selector.star
+        querySelector: Selector.totalRate,
+        evaluate: (el) => {
+            return parseFloat(el.textContent.trim()) || el.textContent.trim();
+        }
     },
     reviewNumber: {
         querySelector: Selector.reviewNumber,
         evaluate: (el) => {
-            return parseInt(el.textContent.trim().replace(/\s*global ratings$/, ""));
+            return parseInt(el.textContent.trim().replace(",", ""));
         }
     },
     productsReviewLink: {
         querySelector: Selector.productsReviewLink,
         evaluate: (el) => {
             return el.href;
+        }
+    },
+};
+const ReviewSelectors = {
+    title: {
+        querySelector: Selector.reviewTitle,
+        evaluate: (el) => {
+            return el.textContent.split("\n".repeat(8) + "  \n  \n    ").slice(1).join("").trim();
+        }
+    },
+    rating: {
+        querySelector: Selector.reviewStarRating,
+        evaluate: (el) => {
+            return parseFloat(el.textContent.trim()) || el.textContent.trim();
+        }
+    },
+    date: {
+        querySelector: Selector.reviewDate
+    },
+    content: {
+        querySelector: Selector.reviewBody,
+        evaluate: (el) => {
+            return el.textContent.split("\n".repeat(8) + "  \n  \n    ").slice(1).join("").trim();
         }
     },
 };
@@ -142,6 +174,7 @@ export default async function main(app) {
     let browser = new Browser(app), startTime = Date.now(), result;
 
     app.Logger.info("Launching browser");
+    app.Logger.verbose("Import state: " + app.isImported);
     try {
         app.Logger.verbose("Loading user agents");
         const UAs = (await loadFile(app.App.getFilePath("./dat/user-agents.txt")))
@@ -160,39 +193,44 @@ export default async function main(app) {
         result = await browser.page(async (page) => {
             return await search({ browser, page, search: app.config.query, app, });
         });
+
+        await browser.close();
+
         app.Logger.info("Saving to file...");
         let time = Date.now();
+
+        if (!app.isImported) {
+            let options = {
+                "save as .json": async function (res) {
+                    let path = await saveFile(joinPath(app.config.output, `${app.config.query}-result-${time}.json`), JSON.stringify(res));
+                    app.Logger.log("Saved to file: " + path);
+                },
+                "log to console": (res) => app.Logger.log(JSON.stringify(res)),
+                "none": () => { }
+            };
+            let res = await app.UI.select("Save files to: ", Object.keys(options));
+            if (res) await options[res](result);
+        }
+
         // let path = await saveCSV(app.config.output, `${app.config.query}-result-${time}`, convertToResult(result), {
         //     header: true
         // });
-        let jsonPath = await saveFile(joinPath(app.config.output, `${app.config.query}-result-${time}.json`), JSON.stringify(result));
+        // let jsonPath = await saveFile(joinPath(app.config.output, `${app.config.query}-result-${time}.json`), JSON.stringify(result));
         // app.Logger.log("Saved to file: " + path);
-        app.Logger.log("Saved to file: " + jsonPath);
+        // app.Logger.log("Saved to file: " + jsonPath);
 
     } catch (error) {
         app.Logger.error("An error occurred");
         app.Logger.error(error);
-    } finally {
+    }
+    if (!browser.closed) {
         await browser.close();
         app.Logger.info("Browser closed");
     }
+
     app.Logger.log(`Time elapsed: ${(Date.now() - startTime) / 1000}s`);
 
     return result;
-}
-
-/**
- * @param {Product[]} products 
- */
-function convertToResult(products) {
-    return products.flatMap((product) => {
-        return product.reviews.map((review) => {
-            return {
-                ...product,
-                reviews: review,
-            };
-        });
-    });
 }
 
 /**
@@ -214,7 +252,7 @@ export async function search({ app, browser, page, search }) {
     let links = [], tried = 0;
     while (links.length < app.config.maxTask) {
         url.searchParams.set("page", ++tried);
-        
+
         await page.goto(url.href, { timeout: app.config.timeOut });
         await page.waitForFunction(() => document.title.includes("Amazon.com"), { timeout: app.config.timeOut });
 
@@ -276,11 +314,20 @@ export async function search({ app, browser, page, search }) {
  * @param {import("cli-progress").SingleBar} bar
  * @returns {Promise<ProductDetails>}
  */
-async function getDetails({ browser, page }) {
+async function getDetails({ app, browser, page }) {
     let details = await Promise.all(Object.keys(Details).map(async (key) => {
-        return {
-            key,
-            value: await browser.select(page, Details[key])
+        try {
+            return {
+                key,
+                value: await browser.select(page, Details[key])
+            };
+        } catch (err) {
+            app.Logger.warn("Failed to get details: " + key);
+            app.Logger.warn(err);
+            return {
+                key,
+                value: ""
+            };
         }
     }));
     let output = {};
@@ -319,7 +366,7 @@ async function getReviews({ browser, app }, bar, data) {
         app.Logger.warn("Can't get more than 10 pages of reviews, setting to 10");
         app.config.maxReviews = 10;
     }
-    if(app.config.maxReviews <= 0) {
+    if (app.config.maxReviews <= 0) {
         return [];
     }
     let childBar = bar.create(app.config.maxReviews, 0), pageUrl = new URL(data.productsReviewLink), currentPage = 1, reviews = [],
@@ -342,14 +389,15 @@ async function getReviews({ browser, app }, bar, data) {
                 break;
             }
             let reviewDatas = await Promise.all(reviewsDiv.map(async (review) => {
-                let toText = (el) => el.textContent.trim(), output = {
-                    title: Selector.reviewTitle,
-                    rating: Selector.reviewStarRating,
-                    date: Selector.reviewDate,
-                    content: Selector.reviewBody,
-                };
-                await Promise.all(Object.keys(output).map(async (key) => {
-                    output[key] = await review.$eval(output[key], toText);
+                let output = {};
+                await Promise.all(Object.keys(ReviewSelectors).map(async (key) => {
+                    try {
+                        output[key] = await browser.select(review, ReviewSelectors[key]);
+                    } catch (err) {
+                        app.Logger.warn("Failed to get review details: " + key);
+                        app.Logger.warn(err);
+                        output[key] = "";
+                    }
                 }));
                 return output;
             }));

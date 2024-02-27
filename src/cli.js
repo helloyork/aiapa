@@ -7,7 +7,7 @@ import url from "url";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 
-import { Logger } from "./utils.js";
+import { Logger, EventEmitter } from "./utils.js";
 import ui from "./ui.js";
 
 
@@ -54,6 +54,9 @@ const { program, Option } = commander;
  * @property {string} [scriptPath]
  * @property {OptionDefinition[]} [options]
  * @property {{[key: string]: CommandConfig}} [children]
+ */
+/**
+ * @typedef {"beforeCommand"} AppEvents
  */
 class App {
     /* Static */
@@ -107,6 +110,7 @@ class App {
     /**@type {{[key: string]: CommandDefinition}} */
     commandConfigs = {};
     isImported = false;
+    events = new EventEmitter();
 
     /* Instance */
     get App() {
@@ -233,6 +237,22 @@ class App {
     load() {
         this.isImported = true;
         this.loadConfigFromEnv().loadConfigFromObject(this.userConfig);
+        return this;
+    }
+    /**
+     * @param {AppEvents} type 
+     * @param  {...any} args 
+     */
+    emit(type, ...args) {
+        this.events.emit(type, ...args);
+        return this;
+    }
+    /**
+     * @param {AppEvents} type 
+     * @param {(args: any) => void} listener 
+     */
+    on(type, listener) {
+        this.events.on(type, listener);
         return this;
     }
 }

@@ -1,6 +1,5 @@
-import puppeteer, { Page } from "puppeteer";
+import puppeteer from "puppeteer";
 
-import { Rejected } from "../utils.js";
 
 export class Browser {
     static EventTypes = {
@@ -11,6 +10,7 @@ export class Browser {
     browser = null;
     constructor(app) {
         this.app = app;
+        this.closed = false;
         this.events = {
             beforePage: []
         };
@@ -40,12 +40,11 @@ export class Browser {
         this.browser = await puppeteer.launch(options);
         return this.browser;
     }
-    async tryExecute(func, ...args) {
+    async tryExecute(func, onReject = async () => { }, ...args) {
         try {
             return await func(...args);
         } catch (error) {
-            this.app.Logger.error(error);
-            return new Rejected(error);
+            return await onReject(error);
         }
     }
     /**
@@ -57,6 +56,8 @@ export class Browser {
         return await func(page);
     }
     async close() {
+        if (this.closed) return;
+        this.closed = true;
         await this.browser.close();
     }
     async scrowDown(page) {
@@ -66,7 +67,7 @@ export class Browser {
     }
     /**
      * 
-     * @param {Page} page 
+     * @param {import("puppeteer").ElementHandle} page 
      * @param {import("../commands/get.js").ElementSelector} selector 
      */
     async select(page, selector) {
@@ -83,7 +84,7 @@ export class Browser {
             await page.evaluate(selector.evaluate || ((el) => el[0].textContent.trim()), res);
             return res;
         } else if (selector.evaluate) {
-            return await page.evaluate(selector.evaluate);
+            return await page.evaluate(selector.evaluate || Browser.defaultSelectHanlder);
         }
     }
 }
