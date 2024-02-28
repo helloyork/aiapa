@@ -28,6 +28,7 @@ const { program, Option } = commander;
  * @property {boolean} force
  * @property {string} binPath
  * @property {number} maxReviews
+ * @property {boolean} lowRam
  */
 /**
  * @typedef EnvConfig
@@ -55,7 +56,12 @@ const { program, Option } = commander;
  * @property {{[key: string]: CommandConfig}} [children]
  */
 /**
- * @typedef {"beforeCommand"} AppEvents
+ * @typedef {keyof App.Events} AppEvents
+ */
+/**
+ * @callback GetCommand
+ * @param {App} app
+ * @param {import("./commands/get.js")} module
  */
 class App {
     /* Static */
@@ -71,6 +77,10 @@ class App {
     static staticConfig = {
         MAX_TRY: 128,
     };
+    static Events = {
+        beforeCommandRun: "beforeCommandRun",
+    }
+    /**@type {AppConfig & EnvConfig} */
     static defaultConfig = {
         debug: false,
         envFile: path.resolve(process.cwd(), ".env"),
@@ -85,6 +95,7 @@ class App {
         force: false,
         binPath: "../bin",
         maxReviews: 10,
+        lowRam: false,
     };
 
     /* Constructor */
@@ -108,6 +119,7 @@ class App {
     commandConfigs = {};
     isImported = false;
     events = new EventEmitter();
+    mainModule;
 
     /* Instance */
     get App() {
@@ -156,6 +168,8 @@ class App {
         if(!this.isImported) this.loadConfigFromArgs(command.opts());
         try {
             const module = await App.loadScript(App.getFilePath(config.scriptPath) || command.name());
+            this.mainModule = module;
+            this.emit(App.Events.beforeCommandRun, module);
             let result = await module.default?.(app);
             if (config.action) config.action(result);
             return result;
@@ -213,8 +227,16 @@ class App {
         this.userConfig = obj;
         return this;
     }
+    convert(args = {}) {
+        let o = {};
+        Object.entries(args).forEach(([key, value]) => {
+            if(typeof App.defaultConfig[key] === "number") o[key] = Number(value) || App.defaultConfig[key];
+            else o[key] = value;
+        });
+        return o;
+    }
     loadConfigFromObject(obj) {
-        this.config = { ...App.defaultConfig, ...this.config, ...obj };
+        this.config = { ...App.defaultConfig, ...this.config, ...this.convert(obj) };
         return this;
     }
     loadConfigFromEnv() {
@@ -223,7 +245,11 @@ class App {
         return this;
     }
     loadConfigFromArgs(options) {
-        this.config = { ...App.defaultConfig, ...this.config, ...this.options, ...options };
+        this.config = { ...App.defaultConfig, ...this.config, ...this.convert(this.options), ...this.convert(options) };
+        return this;
+    }
+    startIf(v) {
+        if (v) this.start();
         return this;
     }
     start() {
@@ -246,7 +272,7 @@ class App {
     }
     /**
      * @param {AppEvents} type 
-     * @param {(args: any) => void} listener 
+     * @param {GetCommand} listener 
      */
     on(type, listener) {
         this.events.on(type, listener);

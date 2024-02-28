@@ -1,9 +1,16 @@
 import fs from "fs/promises";
 import path from "path";
+import { realpathSync } from "fs";
+import { pathToFileURL } from "url";
+
 import { randomInt } from "../utils.js";
 import { Parser } from "json2csv";
 
 let UAs = [];
+
+export function isImported(url) {
+    return url === pathToFileURL(realpathSync(process.argv[1])).href
+}
 
 export async function loadFile(filePath, encoding = "utf-8") {
     return await fs.readFile(path.resolve(process.cwd(), filePath), encoding);

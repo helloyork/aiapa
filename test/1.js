@@ -1,4 +1,4 @@
-import { app, Commands } from "aiapa";
+import { app, Commands } from "../index.js";
 
 app.setUserConfig({
     verbose: true,
@@ -7,5 +7,7 @@ app.setUserConfig({
     maxConcurrency: 5,
     maxReviews: 5,
     output: "./bin"
-}).load().run(Commands.get);
+}).load();
 
+app.on("beforeCommandRun", (app, command)=>{
+}).run("get");
