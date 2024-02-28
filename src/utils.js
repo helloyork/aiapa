@@ -1,6 +1,10 @@
 import * as cliProgress from "cli-progress";
 export { EventEmitter } from "events";
 
+export function deepCopy(obj) {
+    return JSON.parse(JSON.stringify(obj));
+}
+
 export function createProgressBar(payload = {}) {
     return new cliProgress.SingleBar({
         clearOnComplete: true,

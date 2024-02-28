@@ -54,6 +54,7 @@ const { program, Option } = commander;
  * @property {string} [scriptPath]
  * @property {OptionDefinition[]} [options]
  * @property {{[key: string]: CommandConfig}} [children]
+ * @property {commander.Command} [command]
  */
 /**
  * @typedef {keyof App.Events} AppEvents
@@ -66,11 +67,12 @@ const { program, Option } = commander;
 class App {
     /* Static */
     static async loadScript(scriptPath) {
-        const module = await import(url.pathToFileURL(path.resolve(process.cwd(), scriptPath)).href);
+        app.Logger.info("Loading dynamic script: " + this.getFilePath(scriptPath));
+        const module = await import(url.pathToFileURL(this.getFilePath(scriptPath)));
         return module;
     }
     static getFilePath(relativePath) {
-        return resolve(dirname(import.meta.url), relativePath);
+        return resolve(dirname(url.fileURLToPath(import.meta.url)), relativePath);
     }
     static Option = Option;
     static UI = ui;
@@ -79,7 +81,7 @@ class App {
     };
     static Events = {
         beforeCommandRun: "beforeCommandRun",
-    }
+    };
     /**@type {AppConfig & EnvConfig} */
     static defaultConfig = {
         debug: false,
@@ -143,6 +145,15 @@ class App {
             .version(version);
         return this;
     }
+    getCommand(parent, args) {
+        if (!args || !parent || (Array.isArray(args) && !args.length)) return parent;
+        let [key, ...rest] = args;
+        if (parent[key]) {
+            if (rest.length && parent[key].children) return this.getCommand(parent[key].children, rest);
+            return parent[key];
+        }
+        return parent;
+    }
     /**
      * Run command by name
      * @param {string|CommandDefinition} name Command name
@@ -150,9 +161,9 @@ class App {
      */
     async run(name) {
         if (typeof name === "string") {
-            let command = this.program.commands.find(cmd => cmd.name() === name), config = this.commandConfigs[name];
-            if (!command || !config) throw new Error("Command not found: " + name);
-            return await this.runCommand(command, config);
+            let cmd = this.getCommand(this.commandConfigs, name.split("."));
+            if (!cmd) throw new Error("Command not found: " + name);
+            return await this.runCommand(cmd.command, cmd);
         } else {
             let command = this.program.commands.find(cmd => cmd.name() === name.name);
             if (!command) throw new Error("Command not found: " + name.name);
@@ -165,9 +176,9 @@ class App {
      * @returns {Promise<any>}
      */
     async runCommand(command, config) {
-        if(!this.isImported) this.loadConfigFromArgs(command.opts());
+        if (!this.isImported) this.loadConfigFromArgs(command.opts());
         try {
-            const module = await App.loadScript(App.getFilePath(config.scriptPath) || command.name());
+            const module = await App.loadScript(config.scriptPath || command.name());
             this.mainModule = module;
             this.emit(App.Events.beforeCommandRun, module);
             let result = await module.default?.(app);
@@ -183,7 +194,7 @@ class App {
      * @param {CommandDefinition} command 
      * @returns {this}
      */
-    registerCommand(command, parent = this.program) {
+    registerCommand(command, parent = this.program, root = {}) {
         let cmd = new commander.Command(command.name)
             .description(command.description)
             .action(async () => {
@@ -193,8 +204,8 @@ class App {
             cmd.option(option.flags, option.description, option.defaultValue);
         });
         parent.addCommand(cmd);
-        this.commandConfigs[command.name] = command;
-        if (command.children) this.registerCommands(command.children, cmd);
+        root[command.name] = { ...command, command: cmd, children: {} };
+        if (command.children) this.registerCommands(command.children, cmd, root[command.name].children);
         return this;
     }
     /**
@@ -202,9 +213,10 @@ class App {
      * @param {{[key: string]: CommandDefinition}} commands 
      * @returns {this}
      */
-    registerCommands(commands, parent = this.program) {
-        Object.values(commands).forEach(command => {
-            this.registerCommand(command, parent);
+    registerCommands(commands, parent = this.program, root = this.commandConfigs) {
+        if (!this.commandConfigs) this.commandConfigs = {};
+        Object.entries(commands).forEach(([, command]) => {
+            this.registerCommand(command, parent, root);
         });
         return this;
     }
@@ -230,7 +242,7 @@ class App {
     convert(args = {}) {
         let o = {};
         Object.entries(args).forEach(([key, value]) => {
-            if(typeof App.defaultConfig[key] === "number") o[key] = Number(value) || App.defaultConfig[key];
+            if (typeof App.defaultConfig[key] === "number") o[key] = Number(value) || App.defaultConfig[key];
             else o[key] = value;
         });
         return o;

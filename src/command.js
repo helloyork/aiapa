@@ -61,7 +61,15 @@ export const Options = {
     }
 };
 
-/**@type {{[key: string]: import("./cli.js").CommandDefinition}} */
+/**
+ * @typedef {import("./cli.js").CommandDefinition} CommandDefinition
+ */
+/**
+ * @typedef {Object} Commands
+ * @property {CommandDefinition} get
+ * @property {CommandDefinition} bin
+ */
+/**@type {Commands} */
 export const Commands = {
     "get": {
         name: "get",
@@ -87,18 +95,5 @@ export const Commands = {
                 options: [Options.force, Options.debug]
             },
         },
-    },
-    "test": {
-        name: "test",
-        description: "Test the program",
-        scriptPath: "./commands/test.js",
-        children: {
-            "sub": {
-                name: "sub",
-                description: "A sub command",
-                scriptPath: "./commands/test.js",
-            }
-        },
-        options: [...Object.values(Options)]
     }
 };

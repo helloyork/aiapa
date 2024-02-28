@@ -7,7 +7,4 @@ app.setUserConfig({
     maxConcurrency: 5,
     maxReviews: 5,
     output: "./bin"
-}).load();
-
-app.on("beforeCommandRun", (app, command)=>{
-}).run("get");
+}).load().run("bin");

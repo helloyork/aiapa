@@ -9,7 +9,7 @@ import { Parser } from "json2csv";
 let UAs = [];
 
 export function isImported(url) {
-    return url === pathToFileURL(realpathSync(process.argv[1])).href
+    return url === pathToFileURL(realpathSync(process.argv[1])).href;
 }
 
 export async function loadFile(filePath, encoding = "utf-8") {
