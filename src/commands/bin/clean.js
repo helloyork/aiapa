@@ -1,5 +1,4 @@
 
-import path from "path";
 import { clearDirectory } from "../../api/dat.js";
 
 /**@param {import("../../cli.js").App} app */

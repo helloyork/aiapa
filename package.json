@@ -11,6 +11,7 @@
   "license": "MIT",
   "type": "module",
   "dependencies": {
+    "@google/generative-ai": "^0.2.1",
     "chalk": "^5.3.0",
     "cheerio": "^1.0.0-rc.12",
     "cli-progress": "^3.12.0",

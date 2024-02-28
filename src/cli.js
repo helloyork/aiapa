@@ -5,7 +5,6 @@ import inquirer from "inquirer";
 import chalk from "chalk";
 import url from "url";
 import dotenv from "dotenv";
-import { fileURLToPath } from "url";
 
 import { Logger, EventEmitter } from "./utils.js";
 import ui from "./ui.js";
@@ -65,9 +64,7 @@ class App {
         return module;
     }
     static getFilePath(relativePath) {
-        const __filename = fileURLToPath(import.meta.url);
-        const __dirname = dirname(__filename);
-        return resolve(__dirname, relativePath);
+        return resolve(dirname(import.meta.url), relativePath);
     }
     static Option = Option;
     static UI = ui;

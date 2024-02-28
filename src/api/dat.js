@@ -75,9 +75,9 @@ export async function clearDirectory(dirPath, whenDeleted = () => { }) {
     }
 }
 
-export async function randomUserAgent() {
+export async function randomUserAgent(app) {
     if (UAs.length === 0) {
-        UAs = (await loadFile(path.join(process.cwd(), "src/dat/user-agents.txt")))
+        UAs = (await loadFile(app.App.getFilePath("./dat/user-agents.txt")))
             .split("\n")
             .map((ua) => ua.trim())
             .filter((ua) => ua.length > 0);
