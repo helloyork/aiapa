@@ -1,71 +1,59 @@
+# AIAPA - AI Analysis of Products on Amazon
 
-# AIAPA
+AIAPA is a Gemini-powered Amazon product analysis tool currently in development. It supports downloading product data via the `get` command, and while there are still refinements to be made, we welcome any problems encountered or suggestions via issue.
 
-An Amazon product analysis tool, using Gemini.
+## Installation Guide
 
-Now it can fetch data from amazon
-
-If you run a task with Option: 5 max concurrency, full review-fetch task and 30 products, it will cost you **3~4 GB** of RAM.
-
-## Installation
-
-You can now download product data via command line or instructions.
+AIAPA can be installed globally with the following command:
 
 ```sh
-npm i aiapa -g
+npm install aiapa -g
 ```
 
-### Via Command Line
+## Instruction
 
-Enter `aiapa get` in the command line to start a task.
+AIAPA can be started from the command line or through a code interface, and supports passing in parameters, calling commands, listening to events, and more.
 
-Add `-h` after the command to get command help.
+### Example of using the Get command
 
-Here is an example task: search for "laptop" and download information for 20 products (sorted by Best Seller), with a maximum of 10 concurrent tasks, download the first 50 reviews, and finally output to "./output".
+- **Command line startup**: enter `aiapa get` to start the task, the sample code is as follows:
 
 ```sh
-aiapa get -q laptop -t 20 -mc 10 -r 5 -o "./output"
+aiapa get -q laptop -t 20 -mc 10 -r 50 -o "./output"
 ```
 
-Wait for the program to run, and finally check the "output" folder in the current directory.
-
-### Via Code
-
-Since this package is based on ESM, it cannot run on CJS! Maybe I will find a way in the future (in the future).
-
-Import from aiapa and run the task!
+- **Code Interface Launch**: The sample code is as follows, demonstrating the functions of configuring, running a task, and getting results:
 
 ```javascript
 import { app, Commands } from "aiapa";
 
-app.setUserConfig({ // Set the configuration, these configurations are equivalent to the above command line
+app.setUserConfig({
     query: "laptop",
     maxTask: 20,
     maxConcurrency: 10,
-    maxReviews: 5,
+    maxReviews: 50,
     output: "./output"
-})
-    .load() // Load the configuration
-    .run(Commands.get); // Start!
+}).load().run(Commands.get);
 
-// If you want to get the result after the run is complete, you can extend the command
+// Example of getting results
 app.run({
     ...Commands.get,
-    action: async function(result){
+    action: async function(result) {
         console.log(result);
     }
 });
+
+// Custom Selector Registration Example
+app.on("beforeCommandRun", (cmd, mod) => {
+    mod.registerDetailSelector("links", {
+        querySelector: "a",
+        evaluate: (el) => el.href
+    });
+}).run(Commands.get);
 ```
 
-Currently supported commands: get, bin, bin clear
+## Contributions and Licenses
 
-## Contribution
+Contributions to the AIAPA program are welcome. **Please ensure that your use is in accordance with the terms of service of the target site and relevant legal regulations.**
 
-Contributions to the repository are welcome!
-
-## License
-
-**Do not use it for any illegal activities! You are responsible for the consequences!**
-
-> Licensed under MIT
-```
+> AIAPA is published under the MIT license.

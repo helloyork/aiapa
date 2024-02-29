@@ -139,10 +139,28 @@ const ReviewSelectors = {
     },
 };
 
+/**
+ * register a selector to be used for getting details
+ * @param {string} key 
+ * @param {ElementSelector} selector 
+ */
 export function registerDetailSelector(key, selector) {
     Details[key] = selector;
 }
 
+/**
+ * register a function to be used for evaluating a selector
+ * evaluate function will be called after the selector is selected
+ * @example
+ * app.on("beforeCommandRun", (cmd, mod) => {
+ *     mod.registerDetailSelector("links", {
+ *         querySelector: "a",
+ *         evaluate: (el) => el.href
+ *     });
+ * }).run(Commands.get);
+ * @param {string} key 
+ * @param {function(Element|Object.<string, Element|Element[]>): any} evaluate 
+ */
 export function registerEvaluation(key, evaluate) {
     Details[key].evaluate = evaluate;
 }

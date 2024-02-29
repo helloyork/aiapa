@@ -16,25 +16,25 @@ const { program, Option } = commander;
 
 /**
  * @typedef AppConfig
- * @property {boolean} debug
- * @property {string} apiKey
- * @property {string} envFile
- * @property {number} maxTask
- * @property {number} maxConcurrency
- * @property {number} timeOut
- * @property {string} query
- * @property {boolean} verbose
- * @property {boolean} headful
- * @property {string} output
- * @property {boolean} force
- * @property {string} binPath
- * @property {number} maxReviews
- * @property {boolean} lowRam
- * @property {string} model
+ * @property {boolean} debug debug mode
+ * @property {string} apiKey api key
+ * @property {string} envFile relative path to .env file
+ * @property {number} maxTask maximum task
+ * @property {number} maxConcurrency maximum concurrency
+ * @property {number} timeOut timeout
+ * @property {string} query search query
+ * @property {boolean} verbose verbose mode
+ * @property {boolean} headful headful mode (show browser when puppeteer-ing)
+ * @property {string} output output directory
+ * @property {boolean} force force mode
+ * @property {string} binPath relative path to bin directory
+ * @property {number} maxReviews maximum reviews
+ * @property {boolean} lowRam low ram mode
+ * @property {string} model model that is defined in the src/dat/models.json
  */
 /**
  * @typedef EnvConfig
- * @property {string} GEMINI_API_KEY
+ * @property {string} GEMINI_API_KEY gemini api key, can get from https://makersuite.google.com/app/apikey
  */
 /**
  * @typedef {Object} ProgramDefinition
@@ -66,8 +66,8 @@ const { program, Option } = commander;
  */
 /**
  * @callback CommandRuntimeCallback
- * @param {App} app
- * @param {CommandRuntimeModule} module
+ * @param {App} app app instance
+ * @param {CommandRuntimeModule} module module that is going to be executed
  */
 
 class App {
@@ -116,6 +116,7 @@ class App {
 
     /* Constructor */
     /**
+     * Construct an App instance, or you can use the exported instance `app`
      * @constructor
      * @param {{program: import("commander").Command, inquirer: inquirer, chalk: import("chalk").ChalkInstance}} param0 
      */
@@ -169,8 +170,9 @@ class App {
         return parent;
     }
     /**
-     * Run command by name
-     * @param {string|CommandDefinition} name Command name
+     * Run command by name or command definition
+     * @public
+     * @param {string|CommandDefinition} name Command name, or command path, for example: "bin.clear" is as same as bin clear
      * @returns {Promise<any>}
      */
     async run(name) {
@@ -251,6 +253,7 @@ class App {
     }
     /**
      * Load Config from an object
+     * @public
      * @param {AppConfig} obj 
      */
     setUserConfig(obj) {
@@ -287,11 +290,21 @@ class App {
         if (v) this.start();
         return this;
     }
+    /**
+     * YOU SHOULD NOT CALL THIS METHOD IN YOUR CODE INTERFACE LAUNCHER
+     * this method is only for the cli, this will parse args from cli and automatically launch the app
+     * @returns {this}
+     */
     start() {
         this.program.parse(process.argv);
-        this.loadConfigFromArgs();
+        this.loadConfigFromArgs().loadConfigFromEnv();
         return this;
     }
+    /**
+     * you need to call this method after setting up, this will load configs from env and userConfig
+     * @public
+     * @returns {this}
+     */
     load() {
         this.isImported = true;
         this.loadConfigFromObject(this.userConfig).loadConfigFromEnv();
@@ -306,8 +319,16 @@ class App {
         return this;
     }
     /**
-     * @param {AppEvents} type 
-     * @param {CommandRuntimeCallback} listener 
+     * @public
+     * @param {AppEvents} type app event type
+     * @param {CommandRuntimeCallback} listener listener
+     * @example
+     * app.on("beforeCommandRun", (cmd, mod) => {
+     *     mod.registerDetailSelector("links", {
+     *         querySelector: "a",
+     *         evaluate: (el) => el.href
+     *     });
+     * })
      */
     on(type, listener) {
         this.events.on(type, listener);
