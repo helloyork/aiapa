@@ -90,6 +90,7 @@ export class Logger {
     error(message) {
         if (message instanceof Error) message = message.message + "\n" + message.stack;
         console.error(this.generate({ level: this.Levels.ERROR, message }));
+        return message instanceof Error ? message : new Error(message);
     }
     debug(message) {
         try {
@@ -101,6 +102,54 @@ export class Logger {
         if (this.app.config.verbose) console.log(this.generate({ level: this.Levels.VERBOSE, message }));
     }
 }
+
+export class RPM {
+    static subscribers = [];
+    static intervalId = null;
+    static exit() {
+        clearInterval(RPM.intervalId);
+    }
+    static tick() {
+        for (const subscriber of RPM.subscribers) {
+            subscriber.runNextTask();
+        }
+    }
+    constructor(maxRPM) {
+        this.interval = 60000 / maxRPM;
+        this.queue = [];
+        this.lastRunTimestamp = 0;
+        RPM.subscribers.push(this);
+        if (RPM.intervalId === null) {
+            RPM.intervalId = setInterval(RPM.tick, this.interval);
+        }
+    }
+    addTask(task, ...args) {
+        this.queue.push({ task, args });
+    }
+    runNextTask() {
+        if (this.queue.length > 0 && Date.now() - this.lastRunTimestamp >= this.interval) {
+            const { task, args } = this.queue.shift();
+            this.lastRunTimestamp = Date.now();
+            task(...args);
+        }
+    }
+    createTask(taskFunction, ...args) {
+        return async () => {
+            return new Promise(resolve => {
+                this.addTask(() => {
+                    let f = taskFunction(...args);
+                    if (f.then) f.then(resolve);
+                    else resolve(f);
+                });
+            });
+        };
+    }
+    exit() {
+        RPM.exit();
+    }
+}
+
+
 
 export class TaskPool {
     constructor(maxConcurrent, delayBetweenTasks) {

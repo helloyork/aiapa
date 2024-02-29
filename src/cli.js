@@ -8,6 +8,7 @@ import dotenv from "dotenv";
 
 import { Logger, EventEmitter } from "./utils.js";
 import ui from "./ui.js";
+import { resolveFromCwd } from "./api/dat.js";
 
 
 const { program, Option } = commander;
@@ -61,10 +62,14 @@ const { program, Option } = commander;
  * @typedef {keyof App.Events} AppEvents
  */
 /**
- * @callback GetCommand
- * @param {App} app
- * @param {import("./commands/get.js")} module
+ * @typedef {import("./commands/get.js")} CommandRuntimeModule
  */
+/**
+ * @callback CommandRuntimeCallback
+ * @param {App} app
+ * @param {CommandRuntimeModule} module
+ */
+
 class App {
     /* Static */
     static async loadScript(scriptPath) {
@@ -99,8 +104,15 @@ class App {
         binPath: "../bin",
         maxReviews: 10,
         lowRam: false,
-        model: "Gemini Pro",
+        model: "gemini-pro",
     };
+    static exitCode = {
+        OK: 0,
+        ERROR: 1,
+    };
+    static exit(code) {
+        process.exit(code);
+    }
 
     /* Constructor */
     /**
@@ -184,11 +196,15 @@ class App {
             this.mainModule = module;
             this.emit(App.Events.beforeCommandRun, module);
             let result = await module.default?.(app);
+            if (result instanceof Error) {
+                throw result;
+            }
             if (config.action) config.action(result);
             return result;
         } catch (err) {
             this.Logger.error("Crashed while executing the command: " + config.name || command.name());
             this.Logger.error(err);
+            this.exit(App.exitCode.ERROR);
         }
     }
     /**
@@ -239,6 +255,7 @@ class App {
      */
     setUserConfig(obj) {
         this.userConfig = obj;
+        this.loadConfigFromObject(obj);
         return this;
     }
     convert(args = {}) {
@@ -254,7 +271,11 @@ class App {
         return this;
     }
     loadConfigFromEnv() {
-        let parsed = dotenv.config({ ...(this.config.envFile ? {} : { path: this.config.envFile }) });
+        let parsed = dotenv.config({ ...(this.config.envFile ? { path: resolveFromCwd(this.config.envFile) } : {}) });
+        if(parsed.error) {
+            this.Logger.error("Error occurred while loading .env file");
+            this.crash(parsed.error);
+        }
         this.config = { ...App.defaultConfig, ...this.config, ...(parsed ? parsed.parsed : {}) };
         return this;
     }
@@ -273,7 +294,7 @@ class App {
     }
     load() {
         this.isImported = true;
-        this.loadConfigFromEnv().loadConfigFromObject(this.userConfig);
+        this.loadConfigFromObject(this.userConfig).loadConfigFromEnv();
         return this;
     }
     /**
@@ -286,11 +307,18 @@ class App {
     }
     /**
      * @param {AppEvents} type 
-     * @param {GetCommand} listener 
+     * @param {CommandRuntimeCallback} listener 
      */
     on(type, listener) {
         this.events.on(type, listener);
         return this;
+    }
+    exit(code) {
+        App.exit(code);
+    }
+    crash(err) {
+        this.Logger.error(err);
+        this.exit(App.exitCode.ERROR);
     }
 }
 

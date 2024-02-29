@@ -95,5 +95,11 @@ export const Commands = {
                 options: [Options.force, Options.debug]
             },
         },
+    },
+    "test": {
+        name: "test",
+        description: "test methods",
+        scriptPath: "./commands/test.js",
+        options: [Options.debug]
     }
 };

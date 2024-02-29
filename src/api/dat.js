@@ -1,4 +1,5 @@
 import fs from "fs/promises";
+import * as fsSync from "fs";
 import path from "path";
 import { realpathSync } from "fs";
 import { pathToFileURL } from "url";
@@ -14,6 +15,14 @@ export function isImported(url) {
 
 export async function loadFile(filePath, encoding = "utf-8") {
     return await fs.readFile(path.resolve(process.cwd(), filePath), encoding);
+}
+
+export function loadFileSync(filePath, encoding = "utf-8") {
+    return fsSync.readFileSync(path.resolve(process.cwd(), filePath), encoding);
+}
+
+export function resolveFromCwd(_path) {
+    return path.resolve(process.cwd(), _path);
 }
 
 export function joinPath(...paths) {
