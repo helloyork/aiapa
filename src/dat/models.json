@@ -1,0 +1,8 @@
+{
+    "gemini-pro": {
+        "model": "gemini-pro",
+        "inputTokenLimit": 30720,
+        "outputTokenLimit": 2048,
+        "rpm": 60
+    }
+}

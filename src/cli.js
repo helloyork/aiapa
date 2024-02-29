@@ -5,10 +5,10 @@ import inquirer from "inquirer";
 import chalk from "chalk";
 import url from "url";
 import dotenv from "dotenv";
-import { fileURLToPath } from "url";
 
 import { Logger, EventEmitter } from "./utils.js";
 import ui from "./ui.js";
+import { resolveFromCwd } from "./api/dat.js";
 
 
 const { program, Option } = commander;
@@ -16,23 +16,25 @@ const { program, Option } = commander;
 
 /**
  * @typedef AppConfig
- * @property {boolean} debug
- * @property {string} apiKey
- * @property {string} envFile
- * @property {number} maxTask
- * @property {number} maxConcurrency
- * @property {number} timeOut
- * @property {string} query
- * @property {boolean} verbose
- * @property {boolean} headful
- * @property {string} output
- * @property {boolean} force
- * @property {string} binPath
- * @property {number} maxReviews
+ * @property {boolean} debug debug mode
+ * @property {string} apiKey api key
+ * @property {string} envFile relative path to .env file
+ * @property {number} maxTask maximum task
+ * @property {number} maxConcurrency maximum concurrency
+ * @property {number} timeOut timeout
+ * @property {string} query search query
+ * @property {boolean} verbose verbose mode
+ * @property {boolean} headful headful mode (show browser when puppeteer-ing)
+ * @property {string} output output directory
+ * @property {boolean} force force mode
+ * @property {string} binPath relative path to bin directory
+ * @property {number} maxReviews maximum reviews
+ * @property {boolean} lowRam low ram mode
+ * @property {string} model model that is defined in the src/dat/models.json
  */
 /**
  * @typedef EnvConfig
- * @property {string} GEMINI_API_KEY
+ * @property {string} GEMINI_API_KEY gemini api key, can get from https://makersuite.google.com/app/apikey
  */
 /**
  * @typedef {Object} ProgramDefinition
@@ -54,26 +56,39 @@ const { program, Option } = commander;
  * @property {string} [scriptPath]
  * @property {OptionDefinition[]} [options]
  * @property {{[key: string]: CommandConfig}} [children]
+ * @property {commander.Command} [command]
  */
 /**
- * @typedef {"beforeCommand"} AppEvents
+ * @typedef {keyof App.Events} AppEvents
  */
+/**
+ * @typedef {import("./commands/get.js")} CommandRuntimeModule
+ */
+/**
+ * @callback CommandRuntimeCallback
+ * @param {App} app app instance
+ * @param {CommandRuntimeModule} module module that is going to be executed
+ */
+
 class App {
     /* Static */
     static async loadScript(scriptPath) {
-        const module = await import(url.pathToFileURL(path.resolve(process.cwd(), scriptPath)).href);
+        app.Logger.info("Loading dynamic script: " + this.getFilePath(scriptPath));
+        const module = await import(url.pathToFileURL(this.getFilePath(scriptPath)));
         return module;
     }
     static getFilePath(relativePath) {
-        const __filename = fileURLToPath(import.meta.url);
-        const __dirname = dirname(__filename);
-        return resolve(__dirname, relativePath);
+        return resolve(dirname(url.fileURLToPath(import.meta.url)), relativePath);
     }
     static Option = Option;
     static UI = ui;
     static staticConfig = {
         MAX_TRY: 128,
     };
+    static Events = {
+        beforeCommandRun: "beforeCommandRun",
+    };
+    /**@type {AppConfig & EnvConfig} */
     static defaultConfig = {
         debug: false,
         envFile: path.resolve(process.cwd(), ".env"),
@@ -88,10 +103,20 @@ class App {
         force: false,
         binPath: "../bin",
         maxReviews: 10,
+        lowRam: false,
+        model: "gemini-pro",
     };
+    static exitCode = {
+        OK: 0,
+        ERROR: 1,
+    };
+    static exit(code) {
+        process.exit(code);
+    }
 
     /* Constructor */
     /**
+     * Construct an App instance, or you can use the exported instance `app`
      * @constructor
      * @param {{program: import("commander").Command, inquirer: inquirer, chalk: import("chalk").ChalkInstance}} param0 
      */
@@ -111,6 +136,7 @@ class App {
     commandConfigs = {};
     isImported = false;
     events = new EventEmitter();
+    mainModule;
 
     /* Instance */
     get App() {
@@ -134,16 +160,26 @@ class App {
             .version(version);
         return this;
     }
+    getCommand(parent, args) {
+        if (!args || !parent || (Array.isArray(args) && !args.length)) return parent;
+        let [key, ...rest] = args;
+        if (parent[key]) {
+            if (rest.length && parent[key].children) return this.getCommand(parent[key].children, rest);
+            return parent[key];
+        }
+        return parent;
+    }
     /**
-     * Run command by name
-     * @param {string|CommandDefinition} name Command name
+     * Run command by name or command definition
+     * @public
+     * @param {string|CommandDefinition} name Command name, or command path, for example: "bin.clear" is as same as bin clear
      * @returns {Promise<any>}
      */
     async run(name) {
         if (typeof name === "string") {
-            let command = this.program.commands.find(cmd => cmd.name() === name), config = this.commandConfigs[name];
-            if (!command || !config) throw new Error("Command not found: " + name);
-            return await this.runCommand(command, config);
+            let cmd = this.getCommand(this.commandConfigs, name.split("."));
+            if (!cmd) throw new Error("Command not found: " + name);
+            return await this.runCommand(cmd.command, cmd);
         } else {
             let command = this.program.commands.find(cmd => cmd.name() === name.name);
             if (!command) throw new Error("Command not found: " + name.name);
@@ -156,15 +192,21 @@ class App {
      * @returns {Promise<any>}
      */
     async runCommand(command, config) {
-        if(!this.isImported) this.loadConfigFromArgs(command.opts());
+        if (!this.isImported) this.loadConfigFromArgs(command.opts());
         try {
-            const module = await App.loadScript(App.getFilePath(config.scriptPath) || command.name());
+            const module = await App.loadScript(config.scriptPath || command.name());
+            this.mainModule = module;
+            this.emit(App.Events.beforeCommandRun, module);
             let result = await module.default?.(app);
+            if (result instanceof Error) {
+                throw result;
+            }
             if (config.action) config.action(result);
             return result;
         } catch (err) {
             this.Logger.error("Crashed while executing the command: " + config.name || command.name());
             this.Logger.error(err);
+            this.exit(App.exitCode.ERROR);
         }
     }
     /**
@@ -172,7 +214,7 @@ class App {
      * @param {CommandDefinition} command 
      * @returns {this}
      */
-    registerCommand(command, parent = this.program) {
+    registerCommand(command, parent = this.program, root = {}) {
         let cmd = new commander.Command(command.name)
             .description(command.description)
             .action(async () => {
@@ -182,8 +224,8 @@ class App {
             cmd.option(option.flags, option.description, option.defaultValue);
         });
         parent.addCommand(cmd);
-        this.commandConfigs[command.name] = command;
-        if (command.children) this.registerCommands(command.children, cmd);
+        root[command.name] = { ...command, command: cmd, children: {} };
+        if (command.children) this.registerCommands(command.children, cmd, root[command.name].children);
         return this;
     }
     /**
@@ -191,9 +233,10 @@ class App {
      * @param {{[key: string]: CommandDefinition}} commands 
      * @returns {this}
      */
-    registerCommands(commands, parent = this.program) {
-        Object.values(commands).forEach(command => {
-            this.registerCommand(command, parent);
+    registerCommands(commands, parent = this.program, root = this.commandConfigs) {
+        if (!this.commandConfigs) this.commandConfigs = {};
+        Object.entries(commands).forEach(([, command]) => {
+            this.registerCommand(command, parent, root);
         });
         return this;
     }
@@ -210,33 +253,61 @@ class App {
     }
     /**
      * Load Config from an object
+     * @public
      * @param {AppConfig} obj 
      */
     setUserConfig(obj) {
         this.userConfig = obj;
+        this.loadConfigFromObject(obj);
         return this;
     }
+    convert(args = {}) {
+        let o = {};
+        Object.entries(args).forEach(([key, value]) => {
+            if (typeof App.defaultConfig[key] === "number") o[key] = Number(value) || App.defaultConfig[key];
+            else o[key] = value;
+        });
+        return o;
+    }
     loadConfigFromObject(obj) {
-        this.config = { ...App.defaultConfig, ...this.config, ...obj };
+        this.config = { ...App.defaultConfig, ...this.config, ...this.convert(obj) };
         return this;
     }
     loadConfigFromEnv() {
-        let parsed = dotenv.config({ ...(this.config.envFile ? {} : { path: this.config.envFile }) });
+        let parsed = dotenv.config({ ...(this.config.envFile ? { path: resolveFromCwd(this.config.envFile) } : {}) });
+        if(parsed.error) {
+            this.Logger.error("Error occurred while loading .env file");
+            this.crash(parsed.error);
+        }
         this.config = { ...App.defaultConfig, ...this.config, ...(parsed ? parsed.parsed : {}) };
         return this;
     }
     loadConfigFromArgs(options) {
-        this.config = { ...App.defaultConfig, ...this.config, ...this.options, ...options };
+        this.config = { ...App.defaultConfig, ...this.config, ...this.convert(this.options), ...this.convert(options) };
         return this;
     }
+    startIf(v) {
+        if (v) this.start();
+        return this;
+    }
+    /**
+     * YOU SHOULD NOT CALL THIS METHOD IN YOUR CODE INTERFACE LAUNCHER
+     * this method is only for the cli, this will parse args from cli and automatically launch the app
+     * @returns {this}
+     */
     start() {
         this.program.parse(process.argv);
-        this.loadConfigFromArgs();
+        this.loadConfigFromArgs().loadConfigFromEnv();
         return this;
     }
+    /**
+     * you need to call this method after setting up, this will load configs from env and userConfig
+     * @public
+     * @returns {this}
+     */
     load() {
         this.isImported = true;
-        this.loadConfigFromEnv().loadConfigFromObject(this.userConfig);
+        this.loadConfigFromObject(this.userConfig).loadConfigFromEnv();
         return this;
     }
     /**
@@ -248,12 +319,27 @@ class App {
         return this;
     }
     /**
-     * @param {AppEvents} type 
-     * @param {(args: any) => void} listener 
+     * @public
+     * @param {AppEvents} type app event type
+     * @param {CommandRuntimeCallback} listener listener
+     * @example
+     * app.on("beforeCommandRun", (cmd, mod) => {
+     *     mod.registerDetailSelector("links", {
+     *         querySelector: "a",
+     *         evaluate: (el) => el.href
+     *     });
+     * })
      */
     on(type, listener) {
         this.events.on(type, listener);
         return this;
+    }
+    exit(code) {
+        App.exit(code);
+    }
+    crash(err) {
+        this.Logger.error(err);
+        this.exit(App.exitCode.ERROR);
     }
 }
 

@@ -1,22 +1,18 @@
+import { GenerativeAI } from "../api/generative.js";
+import { Rejected } from "../utils.js";
 
 
 /**@param {import("../cli.js").App} app */
 export default async function main(app) {
-    console.log(app.config.debug);
-    console.log(app.config);
-    console.log("hello world!");
-    let res = await app.App.UI.confirm("Are you sure?");
-    console.log(res);
-    res = await app.App.UI.input("What is your name?");
-    console.log(res);
-    res = await app.App.UI.select("What is your favorite color?", ["Red", "Green", "Blue"]);
-    console.log(res);
-    res = await app.App.UI.checkbox("What are your favorite colors?", ["Red", "Green", "Blue"]);
-    console.log(res);
-    res = await app.App.UI.password("What is your password?");
-    console.log(res);
-    app.Logger.log("Hello World!" + app.UI.hex(app.UI.Colors.Red)("Hello World!"));
-    app.Logger.info("Hello World!");
-    app.Logger.error("Hello World!");
-    app.Logger.debug("Hello World!");
+    if(!app.config.debug) {
+        app.Logger.warn("Debug mode is not enabled. Enable it by passing --debug or user config {\"debug\":true} to the command.");
+        return;
+    }
+    console.log(app.config)
+    let ai = new GenerativeAI(app);
+    let result = await ai.call("Who are you?");
+    if(Rejected.isRejected(result)) return app.Logger.error("Rejected: " + result.message);
+    console.log(result);
+    ai.exit();
 }
+

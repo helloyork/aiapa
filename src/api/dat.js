@@ -1,12 +1,28 @@
 import fs from "fs/promises";
+import * as fsSync from "fs";
 import path from "path";
+import { realpathSync } from "fs";
+import { pathToFileURL } from "url";
+
 import { randomInt } from "../utils.js";
 import { Parser } from "json2csv";
 
 let UAs = [];
 
+export function isImported(url) {
+    return url === pathToFileURL(realpathSync(process.argv[1])).href;
+}
+
 export async function loadFile(filePath, encoding = "utf-8") {
     return await fs.readFile(path.resolve(process.cwd(), filePath), encoding);
+}
+
+export function loadFileSync(filePath, encoding = "utf-8") {
+    return fsSync.readFileSync(path.resolve(process.cwd(), filePath), encoding);
+}
+
+export function resolveFromCwd(_path) {
+    return path.resolve(process.cwd(), _path);
 }
 
 export function joinPath(...paths) {
@@ -75,9 +91,9 @@ export async function clearDirectory(dirPath, whenDeleted = () => { }) {
     }
 }
 
-export async function randomUserAgent() {
+export async function randomUserAgent(app) {
     if (UAs.length === 0) {
-        UAs = (await loadFile(path.join(process.cwd(), "src/dat/user-agents.txt")))
+        UAs = (await loadFile(app.App.getFilePath("./dat/user-agents.txt")))
             .split("\n")
             .map((ua) => ua.trim())
             .filter((ua) => ua.length > 0);

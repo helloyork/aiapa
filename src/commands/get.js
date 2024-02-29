@@ -140,6 +140,32 @@ const ReviewSelectors = {
 };
 
 /**
+ * register a selector to be used for getting details
+ * @param {string} key 
+ * @param {ElementSelector} selector 
+ */
+export function registerDetailSelector(key, selector) {
+    Details[key] = selector;
+}
+
+/**
+ * register a function to be used for evaluating a selector
+ * evaluate function will be called after the selector is selected
+ * @example
+ * app.on("beforeCommandRun", (cmd, mod) => {
+ *     mod.registerDetailSelector("links", {
+ *         querySelector: "a",
+ *         evaluate: (el) => el.href
+ *     });
+ * }).run(Commands.get);
+ * @param {string} key 
+ * @param {function(Element|Object.<string, Element|Element[]>): any} evaluate 
+ */
+export function registerEvaluation(key, evaluate) {
+    Details[key].evaluate = evaluate;
+}
+
+/**
  * @typedef {Object} Review
  * @property {string} title
  * @property {string} rating
@@ -237,12 +263,16 @@ export default async function main(app) {
  * @param {{browser: Browser, app: import("../cli.js").App, page: import("puppeteer").Page, search: string}} arg0
  * @returns {Promise<Product[]>}
  */
-export async function search({ app, browser, page, search }) {
+async function search({ app, browser, page, search }) {
     await browser.blockResources(page, config.blockedResourceTypes);
     if (!search && !search.length) {
         let res = await app.UI.input("Pleae type in query to search for:");
         if (!res || !res.length) throw new Error("No query provided, please provide by --query <string>");
         app.config.query = search = res;
+    }
+    if(app.config.lowRam && app.config.maxConcurrency > 3) {
+        app.Logger.warn("Max Concurrecy is set to 3 because of low ram mode");
+        app.config.maxConcurrency = 5;
     }
     let url = new URL(AMAZON_SEARCH_URL);
     url.searchParams.append("k", search);
@@ -276,7 +306,7 @@ export async function search({ app, browser, page, search }) {
     let bar = createProgressBar();
     bar.start(app.config.maxTask, 0);
 
-    let products = [], pool = new TaskPool(app.config.maxConcurrency, 1).addTasks(
+    let products = [], pool = new TaskPool(app.config.maxConcurrency, app.config.lowRam ? 3 * 1000 : 0).addTasks(
         links.slice(0, Number(app.config.maxTask)).map((link) => async () => {
             return await browser.page(async (page) => {
                 await browser.blockResources(page, config.blockedResourceTypes);
@@ -322,7 +352,7 @@ async function getDetails({ app, browser, page }) {
                 value: await browser.select(page, Details[key])
             };
         } catch (err) {
-            app.Logger.warn("Failed to get details: " + key);
+            app.Logger.warn("Failed to get details: " + key + " on page: " + page.url());
             app.Logger.warn(err);
             return {
                 key,

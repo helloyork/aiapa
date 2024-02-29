@@ -1,72 +1,57 @@
+# AIAPA - 亚马逊产品分析工具
 
-# AIAPA
+AIAPA是一个基于Gemini驱动的亚马逊产品分析工具，目前处于开发阶段。它支持通过`get`指令下载商品数据，尽管还有待完善，但我们欢迎通过issue提出任何遇到的问题或建议。
 
-这是一个亚马逊产品分析工具，使用Gemini驱动，目前还没有完成
+## 安装指南
 
-已经可以通过get指令下载商品数据
-
-## Installation
-
-可以通过以下代码安装AIAPA
+通过以下命令可以全局安装AIAPA：
 
 ```sh
-npm install aiapa
+npm install aiapa -g
 ```
 
-## 使用
+## 使用说明
 
-该包可以通过命令行或代码启动
+AIAPA可以通过命令行或代码接口启动，支持传入参数、调用命令、监听事件等功能。
 
-### 通过命令行
+### Get命令使用示例
 
-在命令行中输入```aiapa get```启动一次任务
-
-在命令之后加入-h获取命令帮助
-
-一条示例任务，搜索laptop并且下载20个产品信息（以Best Seller排序），至多同时并行10个任务，下载前50条Reviews，最后输出到"./output"
+- **命令行启动**：输入`aiapa get`启动任务，示例代码如下：
 
 ```sh
-aiapa get -q laptop -t 20 -mc 10 -r 5 -o "./output"
+aiapa get -q laptop -t 20 -mc 10 -r 50 -o "./output"
 ```
 
-等待程序运行，最后查找当前目录下的output文件夹
-
-### 通过代码
-
-由于该包是基于ESM的，所以包无法在CJS上运行！也许我以后会想办法吧（以后）
-
-从aiapa获取导入，并且运行任务！
+- **代码接口启动**：示例代码如下，展示了配置、运行任务以及结果获取等功能：
 
 ```javascript
 import { app, Commands } from "aiapa";
 
-app.setUserConfig({ // 进行配置，这些配置与上面的命令行等价
+app.setUserConfig({
     query: "laptop",
     maxTask: 20,
     maxConcurrency: 10,
-    maxReviews: 5,
+    maxReviews: 50,
     output: "./output"
-})
-    .load() // 载入配置
-    .run(Commands.get); // 启动！
+}).load().run(Commands.get);
 
-// 如果你想要在运行完成之后获取结果，可以对命令进行扩展
+// 结果获取示例
 app.run({
-    ...Commands.get
-    action: async function(result){
+    ...Commands.get,
+    action: async function(result) {
         console.log(result);
     }
 });
+
+// 自定义选择器注册示例
+app.on("beforeCommandRun", (cmd, mod) => {
+    mod.registerDetailSelector("links", {
+        querySelector: "a",
+        evaluate: (el) => el.href
+    });
+}).run(Commands.get);
 ```
 
-目前支持的命令：get, bin, bin clear
+## 贡献与许可
 
-## 贡献
-
-欢迎对储存库进行贡献！
-
-## 许可
-
-**不要用来做任何违法的事情！后果自负！**
-
-> 使用MIT许可证
+欢迎对AIAPA项目做出贡献。请确保您的使用符合目标网站的服务条款和相关法律规定。AIAPA遵循MIT许可证发布。
