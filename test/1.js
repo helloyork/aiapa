@@ -7,4 +7,5 @@ app.setUserConfig({
     maxConcurrency: 5,
     maxReviews: 5,
     output: "./bin"
-}).load().run("bin");
+}).load().on("beforeCommandRun", (cmd, mod) => {
+})

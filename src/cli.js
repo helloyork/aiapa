@@ -29,6 +29,7 @@ const { program, Option } = commander;
  * @property {string} binPath
  * @property {number} maxReviews
  * @property {boolean} lowRam
+ * @property {string} model
  */
 /**
  * @typedef EnvConfig
@@ -98,6 +99,7 @@ class App {
         binPath: "../bin",
         maxReviews: 10,
         lowRam: false,
+        model: "Gemini Pro",
     };
 
     /* Constructor */

@@ -143,6 +143,10 @@ export function registerDetailSelector(key, selector) {
     Details[key] = selector;
 }
 
+export function registerEvaluation(key, evaluate) {
+    Details[key].evaluate = evaluate;
+}
+
 /**
  * @typedef {Object} Review
  * @property {string} title
@@ -241,7 +245,7 @@ export default async function main(app) {
  * @param {{browser: Browser, app: import("../cli.js").App, page: import("puppeteer").Page, search: string}} arg0
  * @returns {Promise<Product[]>}
  */
-export async function search({ app, browser, page, search }) {
+async function search({ app, browser, page, search }) {
     await browser.blockResources(page, config.blockedResourceTypes);
     if (!search && !search.length) {
         let res = await app.UI.input("Pleae type in query to search for:");
