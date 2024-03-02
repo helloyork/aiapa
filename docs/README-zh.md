@@ -31,7 +31,7 @@ app.setUserConfig({
     query: "laptop",
     maxTask: 20,
     maxConcurrency: 10,
-    maxReviews: 50,
+    maxReviews: 5,
     output: "./output"
 }).load().run(Commands.get);
 
