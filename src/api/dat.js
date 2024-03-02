@@ -7,20 +7,39 @@ import { pathToFileURL } from "url";
 import { randomInt } from "../utils.js";
 import { Parser } from "json2csv";
 
+export { resolve } from "path";
+
 let UAs = [];
+
+/**
+ * @typedef {string} relativePath path relative to the cli.js file
+ * @typedef {string} absolutePath path resolved with process.cwd()
+ */
 
 export function isImported(url) {
     return url === pathToFileURL(realpathSync(process.argv[1])).href;
 }
 
+/**
+ * @param {absolutePath} filePath 
+ * @param {fsSync.OpenMode} encoding 
+ */
 export async function loadFile(filePath, encoding = "utf-8") {
     return await fs.readFile(path.resolve(process.cwd(), filePath), encoding);
 }
 
+/**
+ * @param {absolutePath} filePath 
+ * @param {string | undefined} encoding 
+ */
 export function loadFileSync(filePath, encoding = "utf-8") {
     return fsSync.readFileSync(path.resolve(process.cwd(), filePath), encoding);
 }
 
+/**
+ * @param {string} _path 
+ * @returns {absolutePath}
+ */
 export function resolveFromCwd(_path) {
     return path.resolve(process.cwd(), _path);
 }
@@ -29,6 +48,9 @@ export function joinPath(...paths) {
     return path.join(...paths);
 }
 
+/**
+ * @param {absolutePath} dirPath 
+ */
 export async function createDirIfNotExists(dirPath) {
     if (!await directoryExists(dirPath)) {
         await fs.mkdir(path.resolve(process.cwd(), dirPath), { recursive: true });
@@ -72,6 +94,14 @@ export async function directoryExists(dirPath) {
     } catch (error) {
         return false;
     }
+}
+
+/**
+ * @param {absolutePath} dirPath 
+ * @returns {Promise<string[]>}
+ */
+export async function getFilesInDir(dirPath) {
+    return await fs.readdir(path.resolve(process.cwd(), dirPath));
 }
 
 export async function clearDirectory(dirPath, whenDeleted = () => { }) {

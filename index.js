@@ -16,7 +16,7 @@ export { Commands } from "./src/command.js";
 app.registerProgram({
     name: "AIAPA",
     description: "AI Analyzes Products on Amazon",
-    version: "0.1.4",
+    version: "0.1.5",
 })
     .registerCommands(Commands)
     .startIf(isImported(import.meta.url));

@@ -27,7 +27,7 @@ const { program, Option } = commander;
  * @property {boolean} headful headful mode (show browser when puppeteer-ing)
  * @property {string} output output directory
  * @property {boolean} force force mode
- * @property {string} binPath relative path to bin directory
+ * @property {relativePath} binPath relative path to bin directory
  * @property {number} maxReviews maximum reviews
  * @property {boolean} lowRam low ram mode
  * @property {string} model model that is defined in the src/dat/models.json
@@ -50,7 +50,7 @@ const { program, Option } = commander;
 */
 /**
  * @typedef {Object} CommandDefinition
- * @property {string} name
+ * @property {string} namef
  * @property {string} description
  * @property {Function} [action]
  * @property {string} [scriptPath]
@@ -63,6 +63,8 @@ const { program, Option } = commander;
  */
 /**
  * @typedef {import("./commands/get.js")} CommandRuntimeModule
+ * @typedef {import("./api/dat.js").absolutePath} absolutePath
+ * @typedef {import("./api/dat.js").relativePath} relativePath
  */
 /**
  * @callback CommandRuntimeCallback
@@ -72,11 +74,18 @@ const { program, Option } = commander;
 
 class App {
     /* Static */
+    /**
+     * @param {relativePath} scriptPath 
+     */
     static async loadScript(scriptPath) {
-        app.Logger.info("Loading dynamic script: " + this.getFilePath(scriptPath));
+        app.Logger.verbose("Loading dynamic script: " + this.getFilePath(scriptPath));
         const module = await import(url.pathToFileURL(this.getFilePath(scriptPath)));
         return module;
     }
+    /**
+     * @param {relativePath} relativePath 
+     * @returns {absolutePath}
+     */
     static getFilePath(relativePath) {
         return resolve(dirname(url.fileURLToPath(import.meta.url)), relativePath);
     }

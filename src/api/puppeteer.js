@@ -14,6 +14,9 @@ export class Browser {
         this.events = {
             beforePage: []
         };
+        this.allowRecycle = false;
+        this.maxFreePages = 5;
+        this.freePages = [];
     }
     async emit(event, ...args) {
         if (this.events[event]) {
@@ -25,7 +28,19 @@ export class Browser {
         this.events.beforePage.push(func);
         return this;
     }
+    onDisconnect(func) {
+        this.browser.on("disconnected", func);
+    }
+    setAllowRecycle(allow) {
+        this.allowRecycle = allow;
+        return this;
+    }
+    setMaxFreePages(max) {
+        this.maxFreePages = max;
+        return this;
+    }
     async blockResources(page, types) {
+        page.removeAllListeners("request");
         await page.setRequestInterception(true);
         page.on("request", (request) => {
             if (types.includes(request.resourceType())) {
@@ -47,11 +62,25 @@ export class Browser {
             return await onReject(error);
         }
     }
+    free(page) {
+        if (this.freePages.length < this.maxFreePages) {
+            this.freePages.push(page);
+        } else {
+            page.close();
+        }
+    }
     /**
+     * Get a page, if allow page recycle, it will return the first page in free pages
      * @param {function(import("puppeteer").Page):Promise} func
+     * @param {boolean} recycle
      */
-    async page(func) {
-        const page = await this.browser.newPage();
+    async page(func, recycle = this.allowRecycle) {
+        let page;
+        if(recycle && this.freePages.length > 0) {
+            page = this.freePages.shift();
+        } else {
+            page = await this.browser.newPage();
+        }
         await this.emit(Browser.EventTypes.BEFORE_PAGE, page);
         return await func(page);
     }

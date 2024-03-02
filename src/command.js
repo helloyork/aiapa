@@ -94,6 +94,18 @@ export const Commands = {
                 scriptPath: "./commands/bin/clean.js",
                 options: [Options.force, Options.debug]
             },
+            "list": {
+                name: "list",
+                description: "List the bin",
+                scriptPath: "./commands/bin/list.js",
+                options: [Options.debug]
+            },
+            "whereis": {
+                name: "whereis",
+                description: "Show the bin location",
+                scriptPath: "./commands/bin/whereis.js",
+                options: [Options.debug]
+            },
         },
     },
     "test": {

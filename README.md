@@ -22,6 +22,9 @@ AIAPA can be started from the command line or through a code interface, and supp
 aiapa get -q laptop -t 20 -mc 10 -r 50 -o "./output"
 ```
 
+Using the --low-ram flag reduces some of the memory usage  
+Be sure to reserve at least 2GB of memory usage when running
+
 - **Code Interface Launch**: The sample code is as follows, demonstrating the functions of configuring, running a task, and getting results:
 
 ```javascript

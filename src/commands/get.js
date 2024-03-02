@@ -20,7 +20,7 @@ const Selector = {
     sales: "#social-proofing-faceout-title-tk_bought > span",
     star: "#acrPopover > span > a > span",
     reviewNumber: "[data-hook=\"total-review-count\"]",
-    totalRate:"[data-hook=\"rating-out-of-text\"]",
+    totalRate: "[data-hook=\"rating-out-of-text\"]",
     productsReviewLink: "[data-hook=\"see-all-reviews-link-foot\"]",
     queryLinks: "div[data-cy=title-recipe] > h2 > a",
     reviews: "div[data-hook=\"review\"]",
@@ -197,7 +197,8 @@ export function registerEvaluation(key, evaluate) {
 
 /**@param {import("../cli.js").App} app */
 export default async function main(app) {
-    let browser = new Browser(app), startTime = Date.now(), result;
+    let browser = new Browser(app).setAllowRecycle(true).setMaxFreePages(5)
+        , startTime = Date.now(), result;
 
     app.Logger.info("Launching browser");
     app.Logger.verbose("Import state: " + app.isImported);
@@ -215,6 +216,11 @@ export default async function main(app) {
         browser.onBeforePage(async (page) => {
             await page.setUserAgent(UAs[randomInt(0, UAs.length - 1)]);
         });
+        browser.onDisconnect(() => {
+            if(browser.closed) return;
+            throw app.Logger.error(new Error("Browser disconnected"));
+        });
+        
 
         result = await browser.page(async (page) => {
             return await search({ browser, page, search: app.config.query, app, });
@@ -248,11 +254,13 @@ export default async function main(app) {
     } catch (error) {
         app.Logger.error("An error occurred");
         app.Logger.error(error);
+    } finally {
+        if (!browser.closed) {
+            await browser.close();
+            app.Logger.info("Browser closed");
+        }
     }
-    if (!browser.closed) {
-        await browser.close();
-        app.Logger.info("Browser closed");
-    }
+
 
     app.Logger.log(`Time elapsed: ${(Date.now() - startTime) / 1000}s`);
 
@@ -270,7 +278,7 @@ async function search({ app, browser, page, search }) {
         if (!res || !res.length) throw new Error("No query provided, please provide by --query <string>");
         app.config.query = search = res;
     }
-    if(app.config.lowRam && app.config.maxConcurrency > 3) {
+    if (app.config.lowRam && app.config.maxConcurrency > 3) {
         app.Logger.warn("Max Concurrecy is set to 3 because of low ram mode");
         app.config.maxConcurrency = 5;
     }
@@ -301,7 +309,7 @@ async function search({ app, browser, page, search }) {
         app.Logger.verbose(`Found ${links.length} links`);
     }
 
-    await page.close();
+    browser.free(page);
 
     let bar = createProgressBar();
     bar.start(app.config.maxTask, 0);
@@ -318,7 +326,7 @@ async function search({ app, browser, page, search }) {
                 let res = await getDetails({ app, browser, page, search });
                 products.push(res);
 
-                await page.close();
+                browser.free(page);
                 bar.increment(1);
             });
         }));
@@ -374,7 +382,7 @@ async function getDetails({ app, browser, page }) {
  * @returns {Promise<Product[]>}
  */
 async function searchReviews({ app, browser, page, search }, bar, datas) {
-    let result = [], pool = new TaskPool(app.config.maxConcurrency, 1).addTasks(datas.map((data) => async () => {
+    let result = [], pool = new TaskPool(app.config.maxConcurrency, app.config.lowRam ? 2 * 1000 : 0).addTasks(datas.map((data) => async () => {
         result.push({
             ...data,
             reviews: await getReviews({ browser, page, app, search }, bar, data)
@@ -438,6 +446,7 @@ async function getReviews({ browser, app }, bar, data) {
             });
             currentPage++;
         }
+        browser.free(page);
     });
     return reviews;
 }
