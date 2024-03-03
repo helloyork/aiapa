@@ -25,7 +25,7 @@ const { program, Option } = commander;
  * @property {string} query search query
  * @property {boolean} verbose verbose mode
  * @property {boolean} headful headful mode (show browser when puppeteer-ing)
- * @property {string} output output directory
+ * @property {absolutePath} output output directory
  * @property {boolean} force force mode
  * @property {relativePath} binPath relative path to bin directory
  * @property {number} maxReviews maximum reviews

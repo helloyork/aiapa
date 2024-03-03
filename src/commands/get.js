@@ -1,7 +1,9 @@
 
+
 import { Browser } from "../api/puppeteer.js";
 import { TaskPool, randomInt, createProgressBar, createMultiProgressBar } from "../utils.js";
 import { loadFile, saveFile, joinPath } from "../api/dat.js";
+import { Server } from "../api/server.js";
 
 const AMAZON_SEARCH_URL = "https://www.amazon.com/s";
 const config = {
@@ -197,8 +199,11 @@ export function registerEvaluation(key, evaluate) {
 
 /**@param {import("../cli.js").App} app */
 export default async function main(app) {
-    let browser = new Browser(app).setAllowRecycle(true).setMaxFreePages(5)
+    let server = new Server(app);
+    server.init(8080);
+    let browser = new Browser(app, { args: [`--proxy-server=${"http://localhost:" + server.port}`] }).setAllowRecycle(false).setMaxFreePages(5)
         , startTime = Date.now(), result;
+    // browser.usePlugin(Browser.Plugins.StealthPlugin());
 
     app.Logger.info("Launching browser");
     app.Logger.verbose("Import state: " + app.isImported);
@@ -213,14 +218,16 @@ export default async function main(app) {
         await browser.launch({ headless: !app.config.headful });
         app.Logger.log("Browser launched");
 
+        const currentUa = UAs[randomInt(0, UAs.length - 1)];
+
         browser.onBeforePage(async (page) => {
-            await page.setUserAgent(UAs[randomInt(0, UAs.length - 1)]);
+            await page.setUserAgent(currentUa);
         });
         browser.onDisconnect(() => {
-            if(browser.closed) return;
+            if (browser.closed) return;
             throw app.Logger.error(new Error("Browser disconnected"));
         });
-        
+
 
         result = await browser.page(async (page) => {
             return await search({ browser, page, search: app.config.query, app, });
@@ -272,7 +279,7 @@ export default async function main(app) {
  * @returns {Promise<Product[]>}
  */
 async function search({ app, browser, page, search }) {
-    await browser.blockResources(page, config.blockedResourceTypes);
+    if (!app.config.debug) await browser.blockResources(page, config.blockedResourceTypes);
     if (!search && !search.length) {
         let res = await app.UI.input("Pleae type in query to search for:");
         if (!res || !res.length) throw new Error("No query provided, please provide by --query <string>");
@@ -317,7 +324,7 @@ async function search({ app, browser, page, search }) {
     let products = [], pool = new TaskPool(app.config.maxConcurrency, app.config.lowRam ? 3 * 1000 : 0).addTasks(
         links.slice(0, Number(app.config.maxTask)).map((link) => async () => {
             return await browser.page(async (page) => {
-                await browser.blockResources(page, config.blockedResourceTypes);
+                if (!app.config.debug) await browser.blockResources(page, config.blockedResourceTypes);
                 await page.goto(link, { timeout: app.config.timeOut }); // waitUntil: "networkidle2", 
                 await page.waitForFunction(() => document.title.includes("Amazon.com"), { timeout: app.config.timeOut });
 
@@ -410,7 +417,7 @@ async function getReviews({ browser, app }, bar, data) {
     let childBar = bar.create(app.config.maxReviews, 0), pageUrl = new URL(data.productsReviewLink), currentPage = 1, reviews = [],
         maxTitleLength = 12, endStr = "...";
     await browser.page(async (page) => {
-        await browser.blockResources(page, config.blockedResourceTypes);
+        if (!app.config.debug) await browser.blockResources(page, config.blockedResourceTypes);
         // each page may have 10 reviews, but we can't get more than 10 pages
         while (currentPage <= app.config.maxReviews) {
             if (currentPage > app.App.staticConfig.MAX_TRY) {
@@ -419,7 +426,14 @@ async function getReviews({ browser, app }, bar, data) {
 
             pageUrl.searchParams.set("pageNumber", currentPage);
             await page.goto(pageUrl.href, { timeout: app.config.timeOut });
-            await page.waitForFunction(() => document.title.includes("Amazon.com"), { timeout: app.config.timeOut });
+            await page.waitForFunction(() => ((document.title.includes("Amazon.com") || document.title.includes("Sign-In"))), { timeout: app.config.timeOut });
+
+            if (page.url().includes("amazon.com/ap/signin")) {
+                app.Logger.error("Access denied when getting reviews: " + new URL(page.url()).pathname);
+                break;
+            }
+
+
             await browser.scrowDown(page);
 
             let reviewsDiv = (await page.$$(Selector.reviews));

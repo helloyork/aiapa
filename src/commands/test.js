@@ -8,7 +8,7 @@ export default async function main(app) {
         app.Logger.warn("Debug mode is not enabled. Enable it by passing --debug or user config {\"debug\":true} to the command.");
         return;
     }
-    console.log(app.config)
+    console.log(app.config);
     let ai = new GenerativeAI(app);
     let result = await ai.call("Who are you?");
     if(Rejected.isRejected(result)) return app.Logger.error("Rejected: " + result.message);

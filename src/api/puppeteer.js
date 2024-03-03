@@ -1,14 +1,19 @@
-import puppeteer from "puppeteer";
+// import puppeteer from "puppeteer";
+import puppeteer from "puppeteer-extra";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
 
 
 export class Browser {
     static EventTypes = {
         BEFORE_PAGE: "beforePage",
     };
+    static Plugins = {
+        StealthPlugin: StealthPlugin,
+    };
     static defaultSelectHanlder = (el) => el.textContent.trim();
     /**@type {import("puppeteer").Browser} */
     browser = null;
-    constructor(app) {
+    constructor(app, config = {}) {
         this.app = app;
         this.closed = false;
         this.events = {
@@ -17,6 +22,7 @@ export class Browser {
         this.allowRecycle = false;
         this.maxFreePages = 5;
         this.freePages = [];
+        this.puppeteerConfig = config;
     }
     async emit(event, ...args) {
         if (this.events[event]) {
@@ -39,6 +45,10 @@ export class Browser {
         this.maxFreePages = max;
         return this;
     }
+    usePlugin(plugin) {
+        puppeteer.use(plugin);
+        return this;
+    }
     async blockResources(page, types) {
         page.removeAllListeners("request");
         await page.setRequestInterception(true);
@@ -52,7 +62,7 @@ export class Browser {
     }
     /**@param {import("puppeteer").PuppeteerLaunchOptions} options */
     async launch(options) {
-        this.browser = await puppeteer.launch(options);
+        this.browser = await puppeteer.launch({...options, ...this.puppeteerConfig});
         return this.browser;
     }
     async tryExecute(func, onReject = async () => { }, ...args) {
@@ -63,7 +73,7 @@ export class Browser {
         }
     }
     free(page) {
-        if (this.freePages.length < this.maxFreePages) {
+        if (this.freePages.length < this.maxFreePages && this.allowRecycle) {
             this.freePages.push(page);
         } else {
             page.close();
