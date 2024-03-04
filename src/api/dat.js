@@ -64,6 +64,13 @@ export async function saveFile(filePath, data, encoding = "utf-8") {
     return _path;
 }
 
+/**
+ * @param {absolutePath} filePath 
+ * @param {string} name 
+ * @param {readonly any[] | Readonly<any>} data 
+ * @param {import("json2csv").Options<any> | undefined} options 
+ * @returns 
+ */
 export async function saveCSV(filePath, name, data, options = {}) {
     const savePath = path.join(process.cwd(), filePath, `${name}.csv`), csv = new Parser(options).parse(data);
     await saveFile(savePath, csv);

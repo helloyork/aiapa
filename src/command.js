@@ -58,7 +58,11 @@ export const Options = {
     lowRam: {
         flags: "--low-ram",
         description: "Enable low ram mode",
-    }
+    },
+    proxy: {
+        flags: "--proxy",
+        description: "using proxy",
+    },
 };
 
 /**
@@ -75,7 +79,7 @@ export const Commands = {
         name: "get",
         description: "get product information from amazon",
         scriptPath: "./commands/get.js",
-        options: [Options.query, Options.output, Options.maxTask, Options.maxConcurrency, Options.timeOut, Options.headful, Options.debug, Options.verbose, Options.maxReviews, Options.lowRam],
+        options: [Options.query, Options.output, Options.maxTask, Options.maxConcurrency, Options.timeOut, Options.headful, Options.debug, Options.verbose, Options.maxReviews, Options.lowRam, Options.proxy],
     },
     "bin": {
         name: "bin",

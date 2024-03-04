@@ -2,12 +2,13 @@
 
 import { Browser } from "../api/puppeteer.js";
 import { TaskPool, randomInt, createProgressBar, createMultiProgressBar } from "../utils.js";
-import { loadFile, saveFile, joinPath } from "../api/dat.js";
+import { loadFile, saveFile, joinPath, saveCSV } from "../api/dat.js";
 import { Server } from "../api/server.js";
 
 const AMAZON_SEARCH_URL = "https://www.amazon.com/s";
 const config = {
     blockedResourceTypes: ["image", "font", "stylesheet"],
+    proxies: [],
 };
 /**
  * @typedef {Object} ElementSelector
@@ -168,6 +169,22 @@ export function registerEvaluation(key, evaluate) {
 }
 
 /**
+ * register a proxy to be used for requests
+ * @example
+ * app.on("beforeCommandRun", (cmd, mod) => {
+ *    mod.registerProxy(["http://127.0.0.1:8081", // some proxies
+ *    ]);
+ * });
+ * @param {string[]|string} proxy 
+ * @returns {string[]}
+ */
+export function registerProxy(proxy) {
+    if (Array.isArray(proxy)) config.proxies.push(...proxy);
+    else config.proxies.push(proxy);
+    return [...config.proxies];
+}
+
+/**
  * @typedef {Object} Review
  * @property {string} title
  * @property {string} rating
@@ -200,10 +217,9 @@ export function registerEvaluation(key, evaluate) {
 /**@param {import("../cli.js").App} app */
 export default async function main(app) {
     let server = new Server(app);
-    server.init(8080);
-    let browser = new Browser(app, { args: [`--proxy-server=${"http://localhost:" + server.port}`] }).setAllowRecycle(false).setMaxFreePages(5)
+    let browser = new Browser(app, { args: [...(app.config.proxy ? [`--proxy-server=${"http://localhost:" + server.port}`] : [])] }).setAllowRecycle(false).setMaxFreePages(5)
         , startTime = Date.now(), result;
-    // browser.usePlugin(Browser.Plugins.StealthPlugin());
+    browser.usePlugin(Browser.Plugins.StealthPlugin());
 
     app.Logger.info("Launching browser");
     app.Logger.verbose("Import state: " + app.isImported);
@@ -214,6 +230,11 @@ export default async function main(app) {
             .map((ua) => ua.trim())
             .filter((ua) => ua.length > 0);
         app.Logger.verbose("User agents loaded");
+
+        if (app.config.proxy) {
+            if (config.proxies.length > 0) server.addProxis(config.proxies);
+            server.init(8080);
+        }
 
         await browser.launch({ headless: !app.config.headful });
         app.Logger.log("Browser launched");
@@ -239,9 +260,25 @@ export default async function main(app) {
         let time = Date.now();
 
         if (!app.isImported) {
+            /**
+             * @type {{[key: string]: function(Product[]): Promise<void>}}
+             */
             let options = {
                 "save as .json": async function (res) {
                     let path = await saveFile(joinPath(app.config.output, `${app.config.query}-result-${time}.json`), JSON.stringify(res));
+                    app.Logger.log("Saved to file: " + path);
+                },
+                "save as .csv": async function (res) {
+                    let output = [];
+                    res.forEach(r => {
+                        let o = {};
+                        Object.entries(r).forEach(([key, value]) => {
+                            if (typeof value === "string") o[key] = value;
+                            else o[key] = JSON.stringify(value);
+                        });
+                        output.push(o);
+                    });
+                    let path = await saveCSV(app.config.output, `${app.config.query}-result-${time}`, output);
                     app.Logger.log("Saved to file: " + path);
                 },
                 "log to console": (res) => app.Logger.log(JSON.stringify(res)),
@@ -251,13 +288,6 @@ export default async function main(app) {
             if (res) await options[res](result);
         }
 
-        // let path = await saveCSV(app.config.output, `${app.config.query}-result-${time}`, convertToResult(result), {
-        //     header: true
-        // });
-        // let jsonPath = await saveFile(joinPath(app.config.output, `${app.config.query}-result-${time}.json`), JSON.stringify(result));
-        // app.Logger.log("Saved to file: " + path);
-        // app.Logger.log("Saved to file: " + jsonPath);
-
     } catch (error) {
         app.Logger.error("An error occurred");
         app.Logger.error(error);
@@ -266,6 +296,7 @@ export default async function main(app) {
             await browser.close();
             app.Logger.info("Browser closed");
         }
+        if (app.config.proxy) server.close();
     }
 
 

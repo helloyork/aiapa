@@ -31,6 +31,7 @@ const { program, Option } = commander;
  * @property {number} maxReviews maximum reviews
  * @property {boolean} lowRam low ram mode
  * @property {string} model model that is defined in the src/dat/models.json
+ * @property {boolean} proxy proxy mode
  */
 /**
  * @typedef EnvConfig
@@ -114,6 +115,7 @@ class App {
         maxReviews: 10,
         lowRam: false,
         model: "gemini-pro",
+        proxy: false,
     };
     static exitCode = {
         OK: 0,
