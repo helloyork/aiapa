@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 
 /**
+ * @fix dead page
+ * @fix no output
+ * @fix sloooooow
  * @todo how about gemini analysis these products?
  */
 

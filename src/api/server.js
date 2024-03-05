@@ -38,7 +38,7 @@ export class Server {
         return this;
     }
     async close() {
-        await this.proxy.close();
+        await this.proxy?.close();
         this.app.Logger.info("Proxy server closed");
     }
 }

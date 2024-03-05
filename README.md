@@ -19,7 +19,7 @@ AIAPA can be started from the command line or through a code interface, and supp
 - **Command line startup**: enter `aiapa get` to start the task, the sample code is as follows:
 
 ```sh
-aiapa get -q laptop -t 20 -mc 10 -r 50 -o "./output"
+aiapa get -q laptop -t 20 -mc 10 -r 5 -o "./output"
 ```
 
 Using the --low-ram flag reduces some of the memory usage  

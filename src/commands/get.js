@@ -1,7 +1,8 @@
+/* eslint-disable indent */
 
 
 import { Browser } from "../api/puppeteer.js";
-import { TaskPool, randomInt, createProgressBar, createMultiProgressBar } from "../utils.js";
+import { TaskPool, randomInt, createProgressBar, createMultiProgressBar, sleep } from "../utils.js";
 import { loadFile, saveFile, joinPath, saveCSV, splitByNewLine, formatDate } from "../api/dat.js";
 import { Server } from "../api/server.js";
 
@@ -16,7 +17,6 @@ const config = {
  * @property {Object.<string, ElementSelector>} [querySelectors]
  * @property {function(Element|Object.<string, Element|Element[]>): any} [evaluate]
  */
-/**@type {{[key: string]: string}}*/
 const Selector = {
     title: "#productTitle",
     price: "#corePrice_feature_div span.a-price > span",
@@ -211,7 +211,12 @@ export function registerProxy(proxy) {
  * @property {string} productsReviewLink
  */
 /**
- * @typedef {ProductDetails & {reviews: Review}} Product
+ * @typedef {Object} ProductReview
+ * @property {Review[]} positive
+ * @property {Review[]} critical
+ */
+/**
+ * @typedef {ProductDetails & {reviews: ProductReview}} Product
  * @property {Review[]} reviews
  */
 
@@ -222,7 +227,8 @@ export default async function main(app) {
     }
 
     let server = new Server(app);
-    let browser = new Browser(app, { args: [...(app.config.proxy ? [`--proxy-server=${"http://localhost:" + server.port}`] : [])] }).setAllowRecycle(false).setMaxFreePages(5)
+    let browser = new Browser(app, { args: [...(app.config.proxy ? [`--proxy-server=${"http://localhost:" + server.port}`] : [])] })
+        .setAllowRecycle(true).setMaxFreePages(app.config.maxConcurrency < 10 ? 10 : app.config.maxConcurrency)
         , startTime = Date.now(), result;
     browser.usePlugin(Browser.Plugins.StealthPlugin());
 
@@ -230,7 +236,7 @@ export default async function main(app) {
     app.Logger.verbose("Import state: " + app.isImported);
     try {
         const UAs = splitByNewLine(await loadFile(app.App.getFilePath(app.App.staticConfig.USER_AGENTS_PATH)));
-        const currentUa = UAs[randomInt(0, UAs.length - 1)];
+        // const currentUa = UAs[randomInt(0, UAs.length - 1)];
         app.Logger.verbose("User agents loaded");
 
         if (app.config.proxy) {
@@ -242,16 +248,16 @@ export default async function main(app) {
         app.Logger.log("Browser launched");
 
         browser.onBeforePage(async (page) => {
-            await page.setUserAgent(currentUa);
+            await page.setUserAgent(UAs[randomInt(0, UAs.length - 1)]);
         }).onDisconnect(() => {
             if (browser.closed) return;
             throw app.Logger.error(new Error("Browser disconnected"));
         });
 
         result = await browser.page(async (page) => {
-            return search({ browser, page, search: app.config.query, app, })
-                .then(r => browser.close().then(() => r));
+            return await search({ browser, page, search: app.config.query, app, });
         });
+        await browser.close();
 
         let time = formatDate(new Date());
         if (!app.isImported) {
@@ -287,8 +293,17 @@ export default async function main(app) {
         app.Logger.error("An error occurred");
         app.Logger.error(error);
     } finally {
-        if (!browser.closed) await browser.close();
-        if (app.config.proxy) await server.close();
+        // let closed = await Promise.all([browser.close, server.close].map(v => {
+        //     return new Promise((resolve) => {
+        //         browser.tryExecute(v, (err) => resolve(Rejected.isRejected(err) ? err : new Rejected(err)));
+        //     });
+        // }));
+        // if (closed.some(v => Rejected.isRejected(v))) {
+        //     app.Logger.error("Failed to stop application, error: ");
+        //     closed.filter(v => Rejected.isRejected(v)).forEach(v => app.Logger.error(v));
+        // }
+        await browser.close();
+        await server.close();
     }
 
 
@@ -339,24 +354,25 @@ async function search({ app, browser, page, search }) {
         app.Logger.verbose(`Found ${links.length} links`);
     }
 
-    browser.free(page);
+    await browser.free(page);
 
     let bar = createProgressBar();
     bar.start(app.config.maxTask, 0);
 
-    let products = [], pool = new TaskPool(app.config.maxConcurrency, app.config.lowRam ? 3 * 1000 : 0).addTasks(
+    let products = [], pool = new TaskPool(app.config.maxConcurrency, app.config.lowRam ? app.App.staticConfig.DELAY_BETWEEN_TASK : 0).addTasks(
         links.slice(0, Number(app.config.maxTask)).map((link) => async () => {
             return await browser.page(async (page) => {
                 if (!app.config.debug) await browser.blockResources(page, config.blockedResourceTypes);
                 await page.goto(link, { timeout: app.config.timeOut });
-                await page.waitForFunction(() => document.title.includes("Amazon.com"), { timeout: app.config.timeOut });
+                await page.waitForSelector(Selector.title, { timeout: app.config.timeOut });
+                // await page.waitForFunction(() => document.title.includes("Amazon.com"), { timeout: app.config.timeOut });
 
                 await browser.scrowDown(page);
 
                 let res = await getDetails({ app, browser, page, search });
                 products.push(res);
 
-                browser.free(page);
+                await browser.free(page);
                 bar.increment(1);
             });
         }));
@@ -364,13 +380,17 @@ async function search({ app, browser, page, search }) {
     bar.stop();
 
     app.Logger.log(`Got ${products.length} products`);
+
+    if (app.config.lowRam) await sleep(app.App.staticConfig.DELAY_BETWEEN_TASK);
+
     app.Logger.info("Running reviews search...");
 
     bar = createMultiProgressBar({
         format: "{bar} | {title} | {value}/{total}",
     });
-    let result = await searchReviews({ app, browser, page, search }, bar, products);
-    app.Logger.log(`Got ${result.map((r) => r.reviews.length).reduce((a, b) => a + b, 0)} reviews`);
+    let result = await searchReviews({ app, browser, page, search }, bar, products),
+        reviewNumber = result.reduce((acc, cur) => acc + Object.values(cur.reviews).map(v => v.length).reduce((a, b) => a + b, 0), 0);
+    app.Logger.log(`Got ${reviewNumber} reviews`);
     bar.stop();
 
     return result;
@@ -411,11 +431,14 @@ async function getDetails({ app, browser, page }) {
  * @param {ProductDetails[]} datas
  * @returns {Promise<Product[]>}
  */
-async function searchReviews({ app, browser, page, search }, bar, datas) {
-    let result = [], pool = new TaskPool(app.config.maxConcurrency, app.config.lowRam ? 2 * 1000 : 0).addTasks(datas.map((data) => async () => {
+async function searchReviews({ app, browser }, bar, datas) {
+    let result = [], pool = new TaskPool(app.config.maxConcurrency, app.config.lowRam ? app.App.staticConfig.DELAY_BETWEEN_TASK : 0).addTasks(datas.map((data) => async () => {
         result.push({
             ...data,
-            reviews: await getReviews({ browser, page, app, search }, bar, data)
+            reviews: {
+                positive: await getReviews({ browser, app }, { bar, data, sort: "positive" }),
+                critical: await getReviews({ browser, app }, { bar, data, sort: "critical" })
+            }
         });
     }));
     await pool.start();
@@ -425,11 +448,10 @@ async function searchReviews({ app, browser, page, search }, bar, datas) {
 
 /**
  * @param {{browser: Browser, app: import("../cli.js").App, page: import("puppeteer").Page, search: string}} arg0
- * @param {import("cli-progress").MultiBar} bar
- * @param {ProductDetails} data
+ * @param {{bar: import("cli-progress").MultiBar, data: ProductDetails, sort: "positive"|"critical"}} arg1
  * @returns {Promise<Review[]>}
  */
-async function getReviews({ browser, app }, bar, data) {
+async function getReviews({ browser, app }, { bar, data, sort = "positive" }) {
     if (app.config.maxReviews > 10) {
         app.Logger.warn("Can't get more than 10 pages of reviews, setting to 10");
         app.config.maxReviews = 10;
@@ -437,7 +459,9 @@ async function getReviews({ browser, app }, bar, data) {
     if (app.config.maxReviews <= 0) {
         return [];
     }
-    let childBar = bar.create(app.config.maxReviews, 0), pageUrl = data.productsReviewLink, reviews = [],
+    let url = new URL(data.productsReviewLink);
+    url.searchParams.set("filterByStar", sort);
+    let childBar = bar.create(app.config.maxReviews, 0), pageUrl = url.href, reviews = [],
         maxTitleLength = 16, endStr = "...", txt = data.title.length > maxTitleLength ? data.title.slice(0, maxTitleLength - endStr.length) + endStr : data.title;
     await browser.page(async (page) => {
         let tried = 0;
@@ -490,7 +514,7 @@ async function getReviews({ browser, app }, bar, data) {
         childBar.update(app.config.maxReviews, {
             title: txt,
         });
-        browser.free(page);
+        await browser.free(page);
     });
     return reviews;
 }

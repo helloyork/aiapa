@@ -97,6 +97,7 @@ class App {
     static staticConfig = {
         MAX_TRY: 128,
         USER_AGENTS_PATH: "./dat/user-agents.txt",
+        DELAY_BETWEEN_TASK: 3 * 1000
     };
     static Events = {
         beforeCommandRun: "beforeCommandRun",

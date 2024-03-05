@@ -19,7 +19,7 @@ AIAPA可以通过命令行或代码接口启动，支持传入参数、调用命
 - **命令行启动**：输入`aiapa get`启动任务，示例代码如下：
 
 ```sh
-aiapa get -q laptop -t 20 -mc 10 -r 50 -o "./output"
+aiapa get -q laptop -t 20 -mc 10 -r 5 -o "./output"
 ```
 
 使用--low-ram旗帜可以减少部分内存使用  

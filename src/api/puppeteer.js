@@ -73,19 +73,25 @@ export class Browser {
             return await onReject(error);
         }
     }
-    free(page) {
+    /**
+     * Free a page, if allow page recycle, it will push the page to free pages, otherwise it will close the page
+     * @param {import("puppeteer").Page} page 
+     */
+    async free(page) {
         if (this.freePages.length < this.maxFreePages && this.allowRecycle) {
             this.freePages.push(page);
+            await page.title("Free Page");
         } else {
-            page.close();
+            await page.close();
         }
     }
     /**
      * Get a page, if allow page recycle, it will return the first page in free pages
      * @param {function(import("puppeteer").Page):Promise} func
+     * @param {function(import("puppeteer").Page):Promise} after
      * @param {boolean} recycle
      */
-    async page(func, recycle = this.allowRecycle) {
+    async page(func, after,recycle = this.allowRecycle) {
         let page;
         if(recycle && this.freePages.length > 0) {
             page = this.freePages.shift();
@@ -93,12 +99,14 @@ export class Browser {
             page = await this.browser.newPage();
         }
         await this.emit(Browser.EventTypes.BEFORE_PAGE, page);
-        return await func(page);
+        let res = await func(page);
+        if (after) await after(page);
+        return res;
     }
     async close() {
         if (this.closed) return;
         this.closed = true;
-        await this.browser.close();
+        await this.browser?.close();
     }
     async scrowDown(page) {
         return await page.evaluate(() => {
