@@ -36,6 +36,7 @@ export class Browser {
     }
     onDisconnect(func) {
         this.browser.on("disconnected", func);
+        return this;
     }
     setAllowRecycle(allow) {
         this.allowRecycle = allow;

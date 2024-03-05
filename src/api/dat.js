@@ -28,6 +28,27 @@ export async function loadFile(filePath, encoding = "utf-8") {
     return await fs.readFile(path.resolve(process.cwd(), filePath), encoding);
 }
 
+export function formatDate(date) {
+    let year = date.getFullYear();
+    let month = (date.getMonth() + 1).toString().padStart(2, "0");
+    let day = date.getDate().toString().padStart(2, "0");
+    let hour = date.getHours().toString().padStart(2, "0");
+    let minute = date.getMinutes().toString().padStart(2, "0");
+    let second = date.getSeconds().toString().padStart(2, "0");
+
+    return `${year}-${month}-${day}_${hour}-${minute}-${second}`;
+}
+
+/**
+ * @param {string} data
+ * @returns {string[]}
+ */
+export function splitByNewLine(data) {
+    return data.split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+}
+
 /**
  * @param {absolutePath} filePath 
  * @param {string | undefined} encoding 

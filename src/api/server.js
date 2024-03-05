@@ -1,8 +1,8 @@
 
 import ProxyChain from "proxy-chain";
-import { loadFileSync } from "./dat.js";
-import { App } from "../cli.js";
 
+// import { loadFileSync } from "./dat.js";
+// import { App } from "../cli.js";
 import { randomInt } from "../utils.js";
 
 // const proxies = JSON.parse(loadFileSync(App.getFilePath("./dat/proxies.json")));
@@ -37,8 +37,8 @@ export class Server {
         });
         return this;
     }
-    close() {
-        this.proxy.close();
+    async close() {
+        await this.proxy.close();
         this.app.Logger.info("Proxy server closed");
     }
 }

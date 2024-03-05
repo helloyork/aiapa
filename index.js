@@ -1,17 +1,13 @@
 #!/usr/bin/env node
 
 /**
- * @todo life cycle events
- * @todo low ram mode
- * @todo save as csv
- * @todo gemini google api
  * @todo how about gemini analysis these products?
  */
 
 import { app } from "./src/cli.js";
 import { isImported } from "./src/api/dat.js";
-import { Commands } from "./src/command.js";
-export { Commands } from "./src/command.js";
+
+export const Commands = app.App.Commands;
 
 app.registerProgram({
     name: "AIAPA",
@@ -23,7 +19,7 @@ app.registerProgram({
 
 
 export {
-    app,
+    app
 };
 
 

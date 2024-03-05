@@ -2,7 +2,7 @@
 
 import { Browser } from "../api/puppeteer.js";
 import { TaskPool, randomInt, createProgressBar, createMultiProgressBar } from "../utils.js";
-import { loadFile, saveFile, joinPath, saveCSV } from "../api/dat.js";
+import { loadFile, saveFile, joinPath, saveCSV, splitByNewLine, formatDate } from "../api/dat.js";
 import { Server } from "../api/server.js";
 
 const AMAZON_SEARCH_URL = "https://www.amazon.com/s";
@@ -35,6 +35,7 @@ const Selector = {
     specificantionsStyle: "#variation_style_name ul li",
     specificantionsColor: "#variation_color_name ul li",
     specificantionsPattern: "#variation_pattern_name ul li",
+    nextPageButton: "#cm_cr-pagination_bar li.a-last > a",
 };
 /**@type {{[key: string]: ElementSelector}}*/
 const Details = {
@@ -216,6 +217,10 @@ export function registerProxy(proxy) {
 
 /**@param {import("../cli.js").App} app */
 export default async function main(app) {
+    if (app.config.debug) {
+        app.Logger.debug("Debug mode enabled, Image will be loaded");
+    }
+
     let server = new Server(app);
     let browser = new Browser(app, { args: [...(app.config.proxy ? [`--proxy-server=${"http://localhost:" + server.port}`] : [])] }).setAllowRecycle(false).setMaxFreePages(5)
         , startTime = Date.now(), result;
@@ -224,11 +229,8 @@ export default async function main(app) {
     app.Logger.info("Launching browser");
     app.Logger.verbose("Import state: " + app.isImported);
     try {
-        app.Logger.verbose("Loading user agents");
-        const UAs = (await loadFile(app.App.getFilePath("./dat/user-agents.txt")))
-            .split("\n")
-            .map((ua) => ua.trim())
-            .filter((ua) => ua.length > 0);
+        const UAs = splitByNewLine(await loadFile(app.App.getFilePath(app.App.staticConfig.USER_AGENTS_PATH)));
+        const currentUa = UAs[randomInt(0, UAs.length - 1)];
         app.Logger.verbose("User agents loaded");
 
         if (app.config.proxy) {
@@ -239,26 +241,19 @@ export default async function main(app) {
         await browser.launch({ headless: !app.config.headful });
         app.Logger.log("Browser launched");
 
-        const currentUa = UAs[randomInt(0, UAs.length - 1)];
-
         browser.onBeforePage(async (page) => {
             await page.setUserAgent(currentUa);
-        });
-        browser.onDisconnect(() => {
+        }).onDisconnect(() => {
             if (browser.closed) return;
             throw app.Logger.error(new Error("Browser disconnected"));
         });
 
-
         result = await browser.page(async (page) => {
-            return await search({ browser, page, search: app.config.query, app, });
+            return search({ browser, page, search: app.config.query, app, })
+                .then(r => browser.close().then(() => r));
         });
 
-        await browser.close();
-
-        app.Logger.info("Saving to file...");
-        let time = Date.now();
-
+        let time = formatDate(new Date());
         if (!app.isImported) {
             /**
              * @type {{[key: string]: function(Product[]): Promise<void>}}
@@ -292,11 +287,8 @@ export default async function main(app) {
         app.Logger.error("An error occurred");
         app.Logger.error(error);
     } finally {
-        if (!browser.closed) {
-            await browser.close();
-            app.Logger.info("Browser closed");
-        }
-        if (app.config.proxy) server.close();
+        if (!browser.closed) await browser.close();
+        if (app.config.proxy) await server.close();
     }
 
 
@@ -356,7 +348,7 @@ async function search({ app, browser, page, search }) {
         links.slice(0, Number(app.config.maxTask)).map((link) => async () => {
             return await browser.page(async (page) => {
                 if (!app.config.debug) await browser.blockResources(page, config.blockedResourceTypes);
-                await page.goto(link, { timeout: app.config.timeOut }); // waitUntil: "networkidle2", 
+                await page.goto(link, { timeout: app.config.timeOut });
                 await page.waitForFunction(() => document.title.includes("Amazon.com"), { timeout: app.config.timeOut });
 
                 await browser.scrowDown(page);
@@ -445,25 +437,25 @@ async function getReviews({ browser, app }, bar, data) {
     if (app.config.maxReviews <= 0) {
         return [];
     }
-    let childBar = bar.create(app.config.maxReviews, 0), pageUrl = new URL(data.productsReviewLink), currentPage = 1, reviews = [],
-        maxTitleLength = 12, endStr = "...";
+    let childBar = bar.create(app.config.maxReviews, 0), pageUrl = data.productsReviewLink, reviews = [],
+        maxTitleLength = 16, endStr = "...", txt = data.title.length > maxTitleLength ? data.title.slice(0, maxTitleLength - endStr.length) + endStr : data.title;
     await browser.page(async (page) => {
+        let tried = 0;
         if (!app.config.debug) await browser.blockResources(page, config.blockedResourceTypes);
+
         // each page may have 10 reviews, but we can't get more than 10 pages
-        while (currentPage <= app.config.maxReviews) {
-            if (currentPage > app.App.staticConfig.MAX_TRY) {
+        while (tried < app.config.maxReviews) {
+            if (tried > app.App.staticConfig.MAX_TRY) {
                 throw new Error("Tried too many times when searching for reviews, max try: " + app.App.staticConfig.MAX_TRY + " reached.");
             }
 
-            pageUrl.searchParams.set("pageNumber", currentPage);
-            await page.goto(pageUrl.href, { timeout: app.config.timeOut });
+            await page.goto(pageUrl, { timeout: app.config.timeOut });
             await page.waitForFunction(() => ((document.title.includes("Amazon.com") || document.title.includes("Sign-In"))), { timeout: app.config.timeOut });
 
             if (page.url().includes("amazon.com/ap/signin")) {
                 app.Logger.error("Access denied when getting reviews: " + new URL(page.url()).pathname);
                 break;
             }
-
 
             await browser.scrowDown(page);
 
@@ -485,12 +477,19 @@ async function getReviews({ browser, app }, bar, data) {
                 return output;
             }));
             reviews.push(...reviewDatas);
-            let txt = data.title.length > maxTitleLength ? data.title.slice(0, maxTitleLength - endStr.length) + endStr : data.title;
             childBar.increment(1, {
                 title: txt,
             });
-            currentPage++;
+            tried++;
+
+            let nextPageUrl = await page.$eval(Selector.nextPageButton, (el) => el.href);
+            if (!nextPageUrl) break;
+            pageUrl = nextPageUrl;
+
         }
+        childBar.update(app.config.maxReviews, {
+            title: txt,
+        });
         browser.free(page);
     });
     return reviews;

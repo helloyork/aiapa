@@ -81,6 +81,12 @@ export const Commands = {
         scriptPath: "./commands/get.js",
         options: [Options.query, Options.output, Options.maxTask, Options.maxConcurrency, Options.timeOut, Options.headful, Options.debug, Options.verbose, Options.maxReviews, Options.lowRam, Options.proxy],
     },
+    "analyze": {
+        name: "analyze",
+        description: "analyze product information",
+        scriptPath: "./commands/analyze.js",
+        options: [Options.debug, Options.verbose]
+    },
     "bin": {
         name: "bin",
         description: "bin methods",

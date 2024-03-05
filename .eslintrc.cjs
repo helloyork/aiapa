@@ -1,7 +1,8 @@
 module.exports = {
     "env": {
         "node": true,
-        "es2023": true
+        "es2023": true,
+        "browser": true
     },
     "extends": "eslint:recommended",
     "overrides": [
