@@ -2,6 +2,8 @@
 
 AIAPA is a Gemini-powered Amazon product analysis tool currently in development. It supports downloading product data via the `get` command, and while there are still refinements to be made, we welcome any problems encountered or suggestions via issue.
 
+**The tool may result in short-term soft bans and permanent bans! Please consider carefully before using it and set a reasonable amount of tasks!**
+
 ## Installation Guide
 
 AIAPA can be installed globally with the following command:
