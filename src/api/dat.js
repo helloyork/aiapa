@@ -7,20 +7,60 @@ import { pathToFileURL } from "url";
 import { randomInt } from "../utils.js";
 import { Parser } from "json2csv";
 
+export { resolve } from "path";
+
 let UAs = [];
+
+/**
+ * @typedef {string} relativePath path relative to the cli.js file
+ * @typedef {string} absolutePath path resolved with process.cwd()
+ */
 
 export function isImported(url) {
     return url === pathToFileURL(realpathSync(process.argv[1])).href;
 }
 
+/**
+ * @param {absolutePath} filePath 
+ * @param {fsSync.OpenMode} encoding 
+ */
 export async function loadFile(filePath, encoding = "utf-8") {
     return await fs.readFile(path.resolve(process.cwd(), filePath), encoding);
 }
 
+export function formatDate(date) {
+    let year = date.getFullYear();
+    let month = (date.getMonth() + 1).toString().padStart(2, "0");
+    let day = date.getDate().toString().padStart(2, "0");
+    let hour = date.getHours().toString().padStart(2, "0");
+    let minute = date.getMinutes().toString().padStart(2, "0");
+    let second = date.getSeconds().toString().padStart(2, "0");
+
+    return `${year}-${month}-${day}_${hour}-${minute}-${second}`;
+}
+
+/**
+ * @param {string} data
+ * @returns {string[]}
+ */
+export function splitByNewLine(data) {
+    return data.split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+}
+
+/**
+ * @param {absolutePath} filePath 
+ * @param {string | undefined} encoding 
+ */
 export function loadFileSync(filePath, encoding = "utf-8") {
     return fsSync.readFileSync(path.resolve(process.cwd(), filePath), encoding);
 }
 
+/**
+ * @param {string} _path 
+ * @returns {absolutePath}
+ */
 export function resolveFromCwd(_path) {
     return path.resolve(process.cwd(), _path);
 }
@@ -29,6 +69,9 @@ export function joinPath(...paths) {
     return path.join(...paths);
 }
 
+/**
+ * @param {absolutePath} dirPath 
+ */
 export async function createDirIfNotExists(dirPath) {
     if (!await directoryExists(dirPath)) {
         await fs.mkdir(path.resolve(process.cwd(), dirPath), { recursive: true });
@@ -42,6 +85,13 @@ export async function saveFile(filePath, data, encoding = "utf-8") {
     return _path;
 }
 
+/**
+ * @param {absolutePath} filePath 
+ * @param {string} name 
+ * @param {readonly any[] | Readonly<any>} data 
+ * @param {import("json2csv").Options<any> | undefined} options 
+ * @returns 
+ */
 export async function saveCSV(filePath, name, data, options = {}) {
     const savePath = path.join(process.cwd(), filePath, `${name}.csv`), csv = new Parser(options).parse(data);
     await saveFile(savePath, csv);
@@ -72,6 +122,14 @@ export async function directoryExists(dirPath) {
     } catch (error) {
         return false;
     }
+}
+
+/**
+ * @param {absolutePath} dirPath 
+ * @returns {Promise<string[]>}
+ */
+export async function getFilesInDir(dirPath) {
+    return await fs.readdir(path.resolve(process.cwd(), dirPath));
 }
 
 export async function clearDirectory(dirPath, whenDeleted = () => { }) {

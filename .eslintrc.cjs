@@ -1,7 +1,8 @@
 module.exports = {
     "env": {
         "node": true,
-        "es2023": true
+        "es2023": true,
+        "browser": true
     },
     "extends": "eslint:recommended",
     "overrides": [
@@ -17,10 +18,6 @@ module.exports = {
             }
         }
     ],
-    "parserOptions": {
-        "ecmaVersion": "latest",
-        "sourceType": "module"
-    },
     "rules": {
         "indent": [
             "error",
@@ -41,10 +38,12 @@ module.exports = {
     },
     parser: "@babel/eslint-parser",
     parserOptions: {
+        "ecmaVersion": "latest",
+        "sourceType": "module",
         requireConfigFile: false,
         babelOptions: {
             plugins: [
-                '@babel/plugin-syntax-import-assertions'
+                "@babel/plugin-syntax-import-assertions"
             ],
         },
     },

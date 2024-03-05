@@ -1,11 +1,15 @@
+/* eslint-disable indent */
+
 
 import { Browser } from "../api/puppeteer.js";
-import { TaskPool, randomInt, createProgressBar, createMultiProgressBar } from "../utils.js";
-import { loadFile, saveFile, joinPath } from "../api/dat.js";
+import { TaskPool, randomInt, createProgressBar, createMultiProgressBar, sleep } from "../utils.js";
+import { loadFile, saveFile, joinPath, saveCSV, splitByNewLine, formatDate } from "../api/dat.js";
+import { Server } from "../api/server.js";
 
 const AMAZON_SEARCH_URL = "https://www.amazon.com/s";
 const config = {
     blockedResourceTypes: ["image", "font", "stylesheet"],
+    proxies: [],
 };
 /**
  * @typedef {Object} ElementSelector
@@ -13,14 +17,13 @@ const config = {
  * @property {Object.<string, ElementSelector>} [querySelectors]
  * @property {function(Element|Object.<string, Element|Element[]>): any} [evaluate]
  */
-/**@type {{[key: string]: string}}*/
 const Selector = {
     title: "#productTitle",
     price: "#corePrice_feature_div span.a-price > span",
     sales: "#social-proofing-faceout-title-tk_bought > span",
     star: "#acrPopover > span > a > span",
     reviewNumber: "[data-hook=\"total-review-count\"]",
-    totalRate:"[data-hook=\"rating-out-of-text\"]",
+    totalRate: "[data-hook=\"rating-out-of-text\"]",
     productsReviewLink: "[data-hook=\"see-all-reviews-link-foot\"]",
     queryLinks: "div[data-cy=title-recipe] > h2 > a",
     reviews: "div[data-hook=\"review\"]",
@@ -32,6 +35,7 @@ const Selector = {
     specificantionsStyle: "#variation_style_name ul li",
     specificantionsColor: "#variation_color_name ul li",
     specificantionsPattern: "#variation_pattern_name ul li",
+    nextPageButton: "#cm_cr-pagination_bar li.a-last > a",
 };
 /**@type {{[key: string]: ElementSelector}}*/
 const Details = {
@@ -166,6 +170,22 @@ export function registerEvaluation(key, evaluate) {
 }
 
 /**
+ * register a proxy to be used for requests
+ * @example
+ * app.on("beforeCommandRun", (cmd, mod) => {
+ *    mod.registerProxy(["http://127.0.0.1:8081", // some proxies
+ *    ]);
+ * });
+ * @param {string[]|string} proxy 
+ * @returns {string[]}
+ */
+export function registerProxy(proxy) {
+    if (Array.isArray(proxy)) config.proxies.push(...proxy);
+    else config.proxies.push(proxy);
+    return [...config.proxies];
+}
+
+/**
  * @typedef {Object} Review
  * @property {string} title
  * @property {string} rating
@@ -191,44 +211,75 @@ export function registerEvaluation(key, evaluate) {
  * @property {string} productsReviewLink
  */
 /**
- * @typedef {ProductDetails & {reviews: Review}} Product
+ * @typedef {Object} ProductReview
+ * @property {Review[]} positive
+ * @property {Review[]} critical
+ */
+/**
+ * @typedef {ProductDetails & {reviews: ProductReview}} Product
  * @property {Review[]} reviews
  */
 
 /**@param {import("../cli.js").App} app */
 export default async function main(app) {
-    let browser = new Browser(app), startTime = Date.now(), result;
+    if (app.config.debug) {
+        app.Logger.debug("Debug mode enabled, Image will be loaded");
+    }
+
+    let server = new Server(app);
+    let browser = new Browser(app, { args: [...(app.config.proxy ? [`--proxy-server=${"http://localhost:" + server.port}`] : [])] })
+        .setAllowRecycle(true).setMaxFreePages(app.config.maxConcurrency < 10 ? 10 : app.config.maxConcurrency)
+        , startTime = Date.now(), result;
+    browser.usePlugin(Browser.Plugins.StealthPlugin());
 
     app.Logger.info("Launching browser");
     app.Logger.verbose("Import state: " + app.isImported);
     try {
-        app.Logger.verbose("Loading user agents");
-        const UAs = (await loadFile(app.App.getFilePath("./dat/user-agents.txt")))
-            .split("\n")
-            .map((ua) => ua.trim())
-            .filter((ua) => ua.length > 0);
+        const UAs = splitByNewLine(await loadFile(app.App.getFilePath(app.App.staticConfig.USER_AGENTS_PATH)));
+        // const currentUa = UAs[randomInt(0, UAs.length - 1)];
         app.Logger.verbose("User agents loaded");
+
+        if (app.config.proxy) {
+            if (config.proxies.length > 0) server.addProxis(config.proxies);
+            server.init(8080);
+        }
 
         await browser.launch({ headless: !app.config.headful });
         app.Logger.log("Browser launched");
 
         browser.onBeforePage(async (page) => {
             await page.setUserAgent(UAs[randomInt(0, UAs.length - 1)]);
+        }).onDisconnect(() => {
+            if (browser.closed) return;
+            throw app.Logger.error(new Error("Browser disconnected"));
         });
 
         result = await browser.page(async (page) => {
             return await search({ browser, page, search: app.config.query, app, });
         });
-
         await browser.close();
 
-        app.Logger.info("Saving to file...");
-        let time = Date.now();
-
+        let time = formatDate(new Date());
         if (!app.isImported) {
+            /**
+             * @type {{[key: string]: function(Product[]): Promise<void>}}
+             */
             let options = {
                 "save as .json": async function (res) {
                     let path = await saveFile(joinPath(app.config.output, `${app.config.query}-result-${time}.json`), JSON.stringify(res));
+                    app.Logger.log("Saved to file: " + path);
+                },
+                "save as .csv": async function (res) {
+                    let output = [];
+                    res.forEach(r => {
+                        let o = {};
+                        Object.entries(r).forEach(([key, value]) => {
+                            if (typeof value === "string") o[key] = value;
+                            else o[key] = JSON.stringify(value);
+                        });
+                        output.push(o);
+                    });
+                    let path = await saveCSV(app.config.output, `${app.config.query}-result-${time}`, output);
                     app.Logger.log("Saved to file: " + path);
                 },
                 "log to console": (res) => app.Logger.log(JSON.stringify(res)),
@@ -238,21 +289,23 @@ export default async function main(app) {
             if (res) await options[res](result);
         }
 
-        // let path = await saveCSV(app.config.output, `${app.config.query}-result-${time}`, convertToResult(result), {
-        //     header: true
-        // });
-        // let jsonPath = await saveFile(joinPath(app.config.output, `${app.config.query}-result-${time}.json`), JSON.stringify(result));
-        // app.Logger.log("Saved to file: " + path);
-        // app.Logger.log("Saved to file: " + jsonPath);
-
     } catch (error) {
         app.Logger.error("An error occurred");
         app.Logger.error(error);
-    }
-    if (!browser.closed) {
+    } finally {
+        // let closed = await Promise.all([browser.close, server.close].map(v => {
+        //     return new Promise((resolve) => {
+        //         browser.tryExecute(v, (err) => resolve(Rejected.isRejected(err) ? err : new Rejected(err)));
+        //     });
+        // }));
+        // if (closed.some(v => Rejected.isRejected(v))) {
+        //     app.Logger.error("Failed to stop application, error: ");
+        //     closed.filter(v => Rejected.isRejected(v)).forEach(v => app.Logger.error(v));
+        // }
         await browser.close();
-        app.Logger.info("Browser closed");
+        await server.close();
     }
+
 
     app.Logger.log(`Time elapsed: ${(Date.now() - startTime) / 1000}s`);
 
@@ -264,13 +317,13 @@ export default async function main(app) {
  * @returns {Promise<Product[]>}
  */
 async function search({ app, browser, page, search }) {
-    await browser.blockResources(page, config.blockedResourceTypes);
+    if (!app.config.debug) await browser.blockResources(page, config.blockedResourceTypes);
     if (!search && !search.length) {
         let res = await app.UI.input("Pleae type in query to search for:");
         if (!res || !res.length) throw new Error("No query provided, please provide by --query <string>");
         app.config.query = search = res;
     }
-    if(app.config.lowRam && app.config.maxConcurrency > 3) {
+    if (app.config.lowRam && app.config.maxConcurrency > 3) {
         app.Logger.warn("Max Concurrecy is set to 3 because of low ram mode");
         app.config.maxConcurrency = 5;
     }
@@ -284,7 +337,9 @@ async function search({ app, browser, page, search }) {
         url.searchParams.set("page", ++tried);
 
         await page.goto(url.href, { timeout: app.config.timeOut });
-        await page.waitForFunction(() => document.title.includes("Amazon.com"), { timeout: app.config.timeOut });
+        await page.waitForFunction(() => document.title.includes("Amazon.com") || document.title.includes("Sorry!"), { timeout: app.config.timeOut });
+
+        if((await page.title()).includes("Sorry!")) throw new Error("Access denied when searching for links: " + new URL(page.url()).pathname);
 
         await browser.scrowDown(page);
         if (tried > app.App.staticConfig.MAX_TRY) {
@@ -301,24 +356,25 @@ async function search({ app, browser, page, search }) {
         app.Logger.verbose(`Found ${links.length} links`);
     }
 
-    await page.close();
+    await browser.free(page);
 
     let bar = createProgressBar();
     bar.start(app.config.maxTask, 0);
 
-    let products = [], pool = new TaskPool(app.config.maxConcurrency, app.config.lowRam ? 3 * 1000 : 0).addTasks(
+    let products = [], pool = new TaskPool(app.config.maxConcurrency, app.config.lowRam ? app.App.staticConfig.DELAY_BETWEEN_TASK : 0).addTasks(
         links.slice(0, Number(app.config.maxTask)).map((link) => async () => {
             return await browser.page(async (page) => {
-                await browser.blockResources(page, config.blockedResourceTypes);
-                await page.goto(link, { timeout: app.config.timeOut }); // waitUntil: "networkidle2", 
-                await page.waitForFunction(() => document.title.includes("Amazon.com"), { timeout: app.config.timeOut });
+                if (!app.config.debug) await browser.blockResources(page, config.blockedResourceTypes);
+                await page.goto(link, { timeout: app.config.timeOut });
+                await page.waitForSelector(Selector.title, { timeout: app.config.timeOut });
+                // await page.waitForFunction(() => document.title.includes("Amazon.com"), { timeout: app.config.timeOut });
 
                 await browser.scrowDown(page);
 
                 let res = await getDetails({ app, browser, page, search });
                 products.push(res);
 
-                await page.close();
+                await browser.free(page);
                 bar.increment(1);
             });
         }));
@@ -326,13 +382,17 @@ async function search({ app, browser, page, search }) {
     bar.stop();
 
     app.Logger.log(`Got ${products.length} products`);
+
+    if (app.config.lowRam) await sleep(app.App.staticConfig.DELAY_BETWEEN_TASK);
+
     app.Logger.info("Running reviews search...");
 
     bar = createMultiProgressBar({
         format: "{bar} | {title} | {value}/{total}",
     });
-    let result = await searchReviews({ app, browser, page, search }, bar, products);
-    app.Logger.log(`Got ${result.map((r) => r.reviews.length).reduce((a, b) => a + b, 0)} reviews`);
+    let result = await searchReviews({ app, browser, page, search }, bar, products),
+        reviewNumber = result.reduce((acc, cur) => acc + Object.values(cur.reviews).map(v => v.length).reduce((a, b) => a + b, 0), 0);
+    app.Logger.log(`Got ${reviewNumber} reviews`);
     bar.stop();
 
     return result;
@@ -373,12 +433,19 @@ async function getDetails({ app, browser, page }) {
  * @param {ProductDetails[]} datas
  * @returns {Promise<Product[]>}
  */
-async function searchReviews({ app, browser, page, search }, bar, datas) {
-    let result = [], pool = new TaskPool(app.config.maxConcurrency, 1).addTasks(datas.map((data) => async () => {
-        result.push({
-            ...data,
-            reviews: await getReviews({ browser, page, app, search }, bar, data)
-        });
+async function searchReviews({ app, browser }, bar, datas) {
+    let result = [], pool = new TaskPool(app.config.maxConcurrency, app.config.lowRam ? app.App.staticConfig.DELAY_BETWEEN_TASK : 0).addTasks(datas.map((data) => async () => {
+        try {
+            result.push({
+                ...data,
+                reviews: {
+                    positive: await getReviews({ browser, app }, { bar, data, sort: "positive" }),
+                    critical: await getReviews({ browser, app }, { bar, data, sort: "critical" })
+                }
+            });
+        } catch (err) {
+            console.error(err);
+        }
     }));
     await pool.start();
     bar.stop();
@@ -387,11 +454,10 @@ async function searchReviews({ app, browser, page, search }, bar, datas) {
 
 /**
  * @param {{browser: Browser, app: import("../cli.js").App, page: import("puppeteer").Page, search: string}} arg0
- * @param {import("cli-progress").MultiBar} bar
- * @param {ProductDetails} data
+ * @param {{bar: import("cli-progress").MultiBar, data: ProductDetails, sort: "positive"|"critical"}} arg1
  * @returns {Promise<Review[]>}
  */
-async function getReviews({ browser, app }, bar, data) {
+async function getReviews({ browser, app }, { bar, data, sort = "positive" }) {
     if (app.config.maxReviews > 10) {
         app.Logger.warn("Can't get more than 10 pages of reviews, setting to 10");
         app.config.maxReviews = 10;
@@ -399,44 +465,66 @@ async function getReviews({ browser, app }, bar, data) {
     if (app.config.maxReviews <= 0) {
         return [];
     }
-    let childBar = bar.create(app.config.maxReviews, 0), pageUrl = new URL(data.productsReviewLink), currentPage = 1, reviews = [],
-        maxTitleLength = 12, endStr = "...";
+    let url = new URL(data.productsReviewLink);
+    url.searchParams.set("filterByStar", sort);
+    let childBar = bar.create(app.config.maxReviews, 0), pageUrl = url.href, reviews = [],
+        maxTitleLength = 16, endStr = "...", txt = data.title.length > maxTitleLength ? data.title.slice(0, maxTitleLength - endStr.length) + endStr : data.title;
     await browser.page(async (page) => {
-        await browser.blockResources(page, config.blockedResourceTypes);
+        let tried = 0;
+        if (!app.config.debug) await browser.blockResources(page, config.blockedResourceTypes);
+
         // each page may have 10 reviews, but we can't get more than 10 pages
-        while (currentPage <= app.config.maxReviews) {
-            if (currentPage > app.App.staticConfig.MAX_TRY) {
-                throw new Error("Tried too many times when searching for reviews, max try: " + app.App.staticConfig.MAX_TRY + " reached.");
-            }
+        try {
+            while (tried < app.config.maxReviews) {
+                if (tried > app.App.staticConfig.MAX_TRY) {
+                    throw new Error("Tried too many times when searching for reviews, max try: " + app.App.staticConfig.MAX_TRY + " reached.");
+                }
 
-            pageUrl.searchParams.set("pageNumber", currentPage);
-            await page.goto(pageUrl.href, { timeout: app.config.timeOut });
-            await page.waitForFunction(() => document.title.includes("Amazon.com"), { timeout: app.config.timeOut });
-            await browser.scrowDown(page);
+                await page.goto(pageUrl, { timeout: app.config.timeOut });
+                await page.waitForFunction(() => ((document.title.includes("Amazon.com") || document.title.includes("Sign-In"))), { timeout: app.config.timeOut });
 
-            let reviewsDiv = (await page.$$(Selector.reviews));
-            if (!reviewsDiv.length) {
-                break;
-            }
-            let reviewDatas = await Promise.all(reviewsDiv.map(async (review) => {
-                let output = {};
-                await Promise.all(Object.keys(ReviewSelectors).map(async (key) => {
-                    try {
-                        output[key] = await browser.select(review, ReviewSelectors[key]);
-                    } catch (err) {
-                        app.Logger.warn("Failed to get review details: " + key);
-                        app.Logger.warn(err);
-                        output[key] = "";
-                    }
+                if (page.url().includes("amazon.com/ap/signin")) {
+                    app.Logger.error("Access denied when getting reviews: " + new URL(page.url()).pathname);
+                    break;
+                }
+
+                await browser.scrowDown(page);
+
+                let reviewsDiv = (await page.$$(Selector.reviews));
+                if (!reviewsDiv.length) {
+                    break;
+                }
+                let reviewDatas = await Promise.all(reviewsDiv.map(async (review) => {
+                    let output = {};
+                    await Promise.all(Object.keys(ReviewSelectors).map(async (key) => {
+                        try {
+                            output[key] = await browser.select(review, ReviewSelectors[key]);
+                        } catch (err) {
+                            app.Logger.warn("Failed to get review details: " + key);
+                            app.Logger.warn(err);
+                            output[key] = "";
+                        }
+                    }));
+                    return output;
                 }));
-                return output;
-            }));
-            reviews.push(...reviewDatas);
-            let txt = data.title.length > maxTitleLength ? data.title.slice(0, maxTitleLength - endStr.length) + endStr : data.title;
-            childBar.increment(1, {
+                reviews.push(...reviewDatas);
+                childBar.increment(1, {
+                    title: txt,
+                });
+                tried++;
+
+                let nextPageLink = await browser.try$Eval(page, { selector: Selector.nextPageButton, evaluate: (el) => el.href });
+                if (!nextPageLink) break;
+                pageUrl = nextPageLink;
+
+            }
+        } catch (err) {
+            app.Logger.error(err);
+        } finally {
+            childBar.update(app.config.maxReviews, {
                 title: txt,
             });
-            currentPage++;
+            await browser.free(page);
         }
     });
     return reviews;

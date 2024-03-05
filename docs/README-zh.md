@@ -19,8 +19,11 @@ AIAPA可以通过命令行或代码接口启动，支持传入参数、调用命
 - **命令行启动**：输入`aiapa get`启动任务，示例代码如下：
 
 ```sh
-aiapa get -q laptop -t 20 -mc 10 -r 50 -o "./output"
+aiapa get -q laptop -t 20 -mc 10 -r 5 -o "./output"
 ```
+
+使用--low-ram旗帜可以减少部分内存使用  
+运行时请确保保留至少2GB的内存使用
 
 - **代码接口启动**：示例代码如下，展示了配置、运行任务以及结果获取等功能：
 
@@ -31,7 +34,7 @@ app.setUserConfig({
     query: "laptop",
     maxTask: 20,
     maxConcurrency: 10,
-    maxReviews: 50,
+    maxReviews: 5,
     output: "./output"
 }).load().run(Commands.get);
 
@@ -51,6 +54,23 @@ app.on("beforeCommandRun", (cmd, mod) => {
     });
 }).run(Commands.get);
 ```
+
+## 更新
+
+### 2024/3/5
+
+本次更新添加了以下内容：  
+1. 代理模式  
+2. 低内存模式
+3. 页面池
+4. 有关bin的有用的子命令（whereis, list）
+
+改动了以下内容：  
+1. 增加错误处理和封禁检测
+2. 增加部分API
+3. 处理部分意外崩溃
+4. 解决了页面加载问题
+5. 优化速度
 
 ## 贡献与许可
 

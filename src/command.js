@@ -22,7 +22,6 @@ export const Options = {
     output: {
         flags: "-o, --output <path>",
         description: "The path to the output file",
-        defaultValue: "bin",
     },
     debug: {
         flags: "--debug",
@@ -35,7 +34,7 @@ export const Options = {
     },
     timeOut: {
         flags: "--time-out <number>",
-        description: "The maximum time to wait for a task to complete",
+        description: "The maximum time to wait for a task to complete in milliseconds",
         defaultValue: 60 * 1000,
     },
     verbose: {
@@ -58,7 +57,11 @@ export const Options = {
     lowRam: {
         flags: "--low-ram",
         description: "Enable low ram mode",
-    }
+    },
+    proxy: {
+        flags: "--proxy",
+        description: "using proxy",
+    },
 };
 
 /**
@@ -75,7 +78,13 @@ export const Commands = {
         name: "get",
         description: "get product information from amazon",
         scriptPath: "./commands/get.js",
-        options: [Options.query, Options.output, Options.maxTask, Options.maxConcurrency, Options.timeOut, Options.headful, Options.debug, Options.verbose, Options.maxReviews, Options.lowRam],
+        options: [Options.query, Options.output, Options.maxTask, Options.maxConcurrency, Options.maxReviews, Options.timeOut, Options.headful, Options.debug, Options.verbose, Options.lowRam, Options.proxy],
+    },
+    "analyze": {
+        name: "analyze",
+        description: "analyze product information",
+        scriptPath: "./commands/analyze.js",
+        options: [Options.debug, Options.verbose]
     },
     "bin": {
         name: "bin",
@@ -93,6 +102,18 @@ export const Commands = {
                 description: "Clean the bin",
                 scriptPath: "./commands/bin/clean.js",
                 options: [Options.force, Options.debug]
+            },
+            "list": {
+                name: "list",
+                description: "List the bin",
+                scriptPath: "./commands/bin/list.js",
+                options: [Options.debug]
+            },
+            "whereis": {
+                name: "whereis",
+                description: "Show the bin location",
+                scriptPath: "./commands/bin/whereis.js",
+                options: [Options.debug]
             },
         },
     },

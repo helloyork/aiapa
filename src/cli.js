@@ -9,6 +9,7 @@ import dotenv from "dotenv";
 import { Logger, EventEmitter } from "./utils.js";
 import ui from "./ui.js";
 import { resolveFromCwd } from "./api/dat.js";
+import { Commands } from "./command.js";
 
 
 const { program, Option } = commander;
@@ -25,12 +26,13 @@ const { program, Option } = commander;
  * @property {string} query search query
  * @property {boolean} verbose verbose mode
  * @property {boolean} headful headful mode (show browser when puppeteer-ing)
- * @property {string} output output directory
+ * @property {absolutePath} output output directory
  * @property {boolean} force force mode
- * @property {string} binPath relative path to bin directory
+ * @property {relativePath} binPath relative path to bin directory
  * @property {number} maxReviews maximum reviews
  * @property {boolean} lowRam low ram mode
  * @property {string} model model that is defined in the src/dat/models.json
+ * @property {boolean} proxy proxy mode
  */
 /**
  * @typedef EnvConfig
@@ -55,14 +57,16 @@ const { program, Option } = commander;
  * @property {Function} [action]
  * @property {string} [scriptPath]
  * @property {OptionDefinition[]} [options]
- * @property {{[key: string]: CommandConfig}} [children]
+ * @property {{[key: string]: CommandDefinition}} [children]
  * @property {commander.Command} [command]
  */
 /**
  * @typedef {keyof App.Events} AppEvents
  */
 /**
- * @typedef {import("./commands/get.js")} CommandRuntimeModule
+ * @typedef {import("./commands/get.js")|import("./commands/bin.js")|import("./commands/analyze.js")|import("./commands/bin/clean.js")|import("./commands/bin/list.js")|import("./commands/bin/whereis.js")} CommandRuntimeModule
+ * @typedef {import("./api/dat.js").absolutePath} absolutePath
+ * @typedef {import("./api/dat.js").relativePath} relativePath
  */
 /**
  * @callback CommandRuntimeCallback
@@ -72,18 +76,28 @@ const { program, Option } = commander;
 
 class App {
     /* Static */
+    /**
+     * @param {relativePath} scriptPath 
+     */
     static async loadScript(scriptPath) {
-        app.Logger.info("Loading dynamic script: " + this.getFilePath(scriptPath));
+        app.Logger.verbose("Loading dynamic script: " + this.getFilePath(scriptPath));
         const module = await import(url.pathToFileURL(this.getFilePath(scriptPath)));
         return module;
     }
+    /**
+     * @param {relativePath} relativePath 
+     * @returns {absolutePath}
+     */
     static getFilePath(relativePath) {
         return resolve(dirname(url.fileURLToPath(import.meta.url)), relativePath);
     }
     static Option = Option;
     static UI = ui;
+    static Commands = Commands;
     static staticConfig = {
         MAX_TRY: 128,
+        USER_AGENTS_PATH: "./dat/user-agents.txt",
+        DELAY_BETWEEN_TASK: 3 * 1000
     };
     static Events = {
         beforeCommandRun: "beforeCommandRun",
@@ -91,20 +105,21 @@ class App {
     /**@type {AppConfig & EnvConfig} */
     static defaultConfig = {
         debug: false,
-        envFile: path.resolve(process.cwd(), ".env"),
-        apiKey: process.env.GEMINI_API_KEY || "",
-        maxTask: 10,
-        maxConcurrency: 5,
-        timeOut: 60 * 1000,
-        query: "",
+        proxy: false,
+        force: false,
+        lowRam: false,
         verbose: false,
         headful: false,
+        query: "",
         output: "./bin",
-        force: false,
         binPath: "../bin",
-        maxReviews: 10,
-        lowRam: false,
         model: "gemini-pro",
+        maxTask: 10,
+        maxReviews: 10,
+        maxConcurrency: 5,
+        timeOut: 60 * 1000,
+        envFile: path.resolve(process.cwd(), ".env"),
+        apiKey: process.env.GEMINI_API_KEY || "",
     };
     static exitCode = {
         OK: 0,
@@ -172,18 +187,18 @@ class App {
     /**
      * Run command by name or command definition
      * @public
-     * @param {string|CommandDefinition} name Command name, or command path, for example: "bin.clear" is as same as bin clear
+     * @param {string|CommandDefinition} cmd Command name, or command path, for example: "bin.clear" is as same as bin clear
      * @returns {Promise<any>}
      */
-    async run(name) {
-        if (typeof name === "string") {
-            let cmd = this.getCommand(this.commandConfigs, name.split("."));
-            if (!cmd) throw new Error("Command not found: " + name);
+    async run(cmd) {
+        if (typeof cmd === "string") {
+            let cmd = this.getCommand(this.commandConfigs, cmd.split("."));
+            if (!cmd) throw new Error("Command not found: " + cmd);
             return await this.runCommand(cmd.command, cmd);
         } else {
-            let command = this.program.commands.find(cmd => cmd.name() === name.name);
-            if (!command) throw new Error("Command not found: " + name.name);
-            return await this.runCommand(command, name);
+            let command = this.program.commands.find(cmd => cmd.name() === cmd.name);
+            if (!command) throw new Error("Command not found: " + cmd.name);
+            return await this.runCommand(command, cmd);
         }
     }
     /**
