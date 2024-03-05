@@ -337,7 +337,9 @@ async function search({ app, browser, page, search }) {
         url.searchParams.set("page", ++tried);
 
         await page.goto(url.href, { timeout: app.config.timeOut });
-        await page.waitForFunction(() => document.title.includes("Amazon.com"), { timeout: app.config.timeOut });
+        await page.waitForFunction(() => document.title.includes("Amazon.com") || document.title.includes("Sorry!"), { timeout: app.config.timeOut });
+
+        if((await page.title()).includes("Sorry!")) throw new Error("Access denied when searching for links: " + new URL(page.url()).pathname);
 
         await browser.scrowDown(page);
         if (tried > app.App.staticConfig.MAX_TRY) {
@@ -433,13 +435,17 @@ async function getDetails({ app, browser, page }) {
  */
 async function searchReviews({ app, browser }, bar, datas) {
     let result = [], pool = new TaskPool(app.config.maxConcurrency, app.config.lowRam ? app.App.staticConfig.DELAY_BETWEEN_TASK : 0).addTasks(datas.map((data) => async () => {
-        result.push({
-            ...data,
-            reviews: {
-                positive: await getReviews({ browser, app }, { bar, data, sort: "positive" }),
-                critical: await getReviews({ browser, app }, { bar, data, sort: "critical" })
-            }
-        });
+        try {
+            result.push({
+                ...data,
+                reviews: {
+                    positive: await getReviews({ browser, app }, { bar, data, sort: "positive" }),
+                    critical: await getReviews({ browser, app }, { bar, data, sort: "critical" })
+                }
+            });
+        } catch (err) {
+            console.error(err);
+        }
     }));
     await pool.start();
     bar.stop();
@@ -468,53 +474,58 @@ async function getReviews({ browser, app }, { bar, data, sort = "positive" }) {
         if (!app.config.debug) await browser.blockResources(page, config.blockedResourceTypes);
 
         // each page may have 10 reviews, but we can't get more than 10 pages
-        while (tried < app.config.maxReviews) {
-            if (tried > app.App.staticConfig.MAX_TRY) {
-                throw new Error("Tried too many times when searching for reviews, max try: " + app.App.staticConfig.MAX_TRY + " reached.");
-            }
+        try {
+            while (tried < app.config.maxReviews) {
+                if (tried > app.App.staticConfig.MAX_TRY) {
+                    throw new Error("Tried too many times when searching for reviews, max try: " + app.App.staticConfig.MAX_TRY + " reached.");
+                }
 
-            await page.goto(pageUrl, { timeout: app.config.timeOut });
-            await page.waitForFunction(() => ((document.title.includes("Amazon.com") || document.title.includes("Sign-In"))), { timeout: app.config.timeOut });
+                await page.goto(pageUrl, { timeout: app.config.timeOut });
+                await page.waitForFunction(() => ((document.title.includes("Amazon.com") || document.title.includes("Sign-In"))), { timeout: app.config.timeOut });
 
-            if (page.url().includes("amazon.com/ap/signin")) {
-                app.Logger.error("Access denied when getting reviews: " + new URL(page.url()).pathname);
-                break;
-            }
+                if (page.url().includes("amazon.com/ap/signin")) {
+                    app.Logger.error("Access denied when getting reviews: " + new URL(page.url()).pathname);
+                    break;
+                }
 
-            await browser.scrowDown(page);
+                await browser.scrowDown(page);
 
-            let reviewsDiv = (await page.$$(Selector.reviews));
-            if (!reviewsDiv.length) {
-                break;
-            }
-            let reviewDatas = await Promise.all(reviewsDiv.map(async (review) => {
-                let output = {};
-                await Promise.all(Object.keys(ReviewSelectors).map(async (key) => {
-                    try {
-                        output[key] = await browser.select(review, ReviewSelectors[key]);
-                    } catch (err) {
-                        app.Logger.warn("Failed to get review details: " + key);
-                        app.Logger.warn(err);
-                        output[key] = "";
-                    }
+                let reviewsDiv = (await page.$$(Selector.reviews));
+                if (!reviewsDiv.length) {
+                    break;
+                }
+                let reviewDatas = await Promise.all(reviewsDiv.map(async (review) => {
+                    let output = {};
+                    await Promise.all(Object.keys(ReviewSelectors).map(async (key) => {
+                        try {
+                            output[key] = await browser.select(review, ReviewSelectors[key]);
+                        } catch (err) {
+                            app.Logger.warn("Failed to get review details: " + key);
+                            app.Logger.warn(err);
+                            output[key] = "";
+                        }
+                    }));
+                    return output;
                 }));
-                return output;
-            }));
-            reviews.push(...reviewDatas);
-            childBar.increment(1, {
+                reviews.push(...reviewDatas);
+                childBar.increment(1, {
+                    title: txt,
+                });
+                tried++;
+
+                let nextPageLink = await browser.try$Eval(page, { selector: Selector.nextPageButton, evaluate: (el) => el.href });
+                if (!nextPageLink) break;
+                pageUrl = nextPageLink;
+
+            }
+        } catch (err) {
+            app.Logger.error(err);
+        } finally {
+            childBar.update(app.config.maxReviews, {
                 title: txt,
             });
-            tried++;
-
-            let nextPageUrl = await page.$eval(Selector.nextPageButton, (el) => el.href);
-            if (!nextPageUrl) break;
-            pageUrl = nextPageUrl;
-
+            await browser.free(page);
         }
-        childBar.update(app.config.maxReviews, {
-            title: txt,
-        });
-        await browser.free(page);
     });
     return reviews;
 }

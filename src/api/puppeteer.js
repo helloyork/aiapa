@@ -113,6 +113,11 @@ export class Browser {
             window.scrollBy(0, window.innerHeight);
         });
     }
+    async try$Eval(page, {selector, evaluate}) {
+        let ele = await page.$(selector);
+        if(!ele || (Array.isArray(ele) && ele.length === 0)) return null;
+        return await page.evaluate(evaluate || (Browser.defaultSelectHanlder), ele);
+    }
     /**
      * 
      * @param {import("puppeteer").ElementHandle} page 

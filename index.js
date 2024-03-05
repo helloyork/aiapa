@@ -1,9 +1,6 @@
 #!/usr/bin/env node
 
 /**
- * @fix dead page
- * @fix no output
- * @fix sloooooow
  * @todo how about gemini analysis these products?
  */
 
@@ -15,7 +12,7 @@ export const Commands = app.App.Commands;
 app.registerProgram({
     name: "AIAPA",
     description: "AI Analyzes Products on Amazon",
-    version: "0.1.5",
+    version: "0.1.6",
 })
     .registerCommands(Commands)
     .startIf(isImported(import.meta.url));

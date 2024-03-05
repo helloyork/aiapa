@@ -22,7 +22,6 @@ export const Options = {
     output: {
         flags: "-o, --output <path>",
         description: "The path to the output file",
-        defaultValue: "bin",
     },
     debug: {
         flags: "--debug",
@@ -35,7 +34,7 @@ export const Options = {
     },
     timeOut: {
         flags: "--time-out <number>",
-        description: "The maximum time to wait for a task to complete",
+        description: "The maximum time to wait for a task to complete in milliseconds",
         defaultValue: 60 * 1000,
     },
     verbose: {
@@ -79,7 +78,7 @@ export const Commands = {
         name: "get",
         description: "get product information from amazon",
         scriptPath: "./commands/get.js",
-        options: [Options.query, Options.output, Options.maxTask, Options.maxConcurrency, Options.timeOut, Options.headful, Options.debug, Options.verbose, Options.maxReviews, Options.lowRam, Options.proxy],
+        options: [Options.query, Options.output, Options.maxTask, Options.maxConcurrency, Options.maxReviews, Options.timeOut, Options.headful, Options.debug, Options.verbose, Options.lowRam, Options.proxy],
     },
     "analyze": {
         name: "analyze",
