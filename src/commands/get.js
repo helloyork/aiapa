@@ -6,17 +6,18 @@ import { TaskPool, randomInt, createProgressBar, createMultiProgressBar, sleep }
 import { loadFile, saveFile, joinPath, saveCSV, splitByNewLine, formatDate } from "../api/dat.js";
 import { Server } from "../api/server.js";
 
+
+/**
+ * @typedef {import("../types").Product} Product
+ * @typedef {import("../types").ElementSelector} ElementSelector
+ */
+
+
 const AMAZON_SEARCH_URL = "https://www.amazon.com/s";
 const config = {
     blockedResourceTypes: ["image", "font", "stylesheet"],
     proxies: [],
 };
-/**
- * @typedef {Object} ElementSelector
- * @property {string|string[]} [querySelector]
- * @property {Object.<string, ElementSelector>} [querySelectors]
- * @property {function(Element|Object.<string, Element|Element[]>): any} [evaluate]
- */
 const Selector = {
     title: "#productTitle",
     price: "#corePrice_feature_div span.a-price > span",
@@ -185,40 +186,8 @@ export function registerProxy(proxy) {
     return [...config.proxies];
 }
 
-/**
- * @typedef {Object} Review
- * @property {string} title
- * @property {string} rating
- * @property {string} date
- * @property {string} content
- */
-/**
- * @typedef {Object} Specificantions
- * @property {string[]} size
- * @property {string[]} style
- * @property {string[]} color
- * @property {string[]} pattern
- */
-/**
- * @typedef {Object} ProductDetails
- * @property {string} href
- * @property {string} title
- * @property {string} price
- * @property {string} sales
- * @property {string} star
- * @property {Specificantions} specificantions
- * @property {number} reviewNumber
- * @property {string} productsReviewLink
- */
-/**
- * @typedef {Object} ProductReview
- * @property {Review[]} positive
- * @property {Review[]} critical
- */
-/**
- * @typedef {ProductDetails & {reviews: ProductReview}} Product
- * @property {Review[]} reviews
- */
+
+
 
 /**@param {import("../cli.js").App} app */
 export default async function main(app) {
@@ -293,15 +262,6 @@ export default async function main(app) {
         app.Logger.error("An error occurred");
         app.Logger.error(error);
     } finally {
-        // let closed = await Promise.all([browser.close, server.close].map(v => {
-        //     return new Promise((resolve) => {
-        //         browser.tryExecute(v, (err) => resolve(Rejected.isRejected(err) ? err : new Rejected(err)));
-        //     });
-        // }));
-        // if (closed.some(v => Rejected.isRejected(v))) {
-        //     app.Logger.error("Failed to stop application, error: ");
-        //     closed.filter(v => Rejected.isRejected(v)).forEach(v => app.Logger.error(v));
-        // }
         await browser.close();
         await server.close();
     }
@@ -339,7 +299,7 @@ async function search({ app, browser, page, search }) {
         await page.goto(url.href, { timeout: app.config.timeOut });
         await page.waitForFunction(() => document.title.includes("Amazon.com") || document.title.includes("Sorry!"), { timeout: app.config.timeOut });
 
-        if((await page.title()).includes("Sorry!")) throw new Error("Access denied when searching for links: " + new URL(page.url()).pathname);
+        if ((await page.title()).includes("Sorry!")) throw new Error("Access denied when searching for links: " + new URL(page.url()).pathname);
 
         await browser.scrowDown(page);
         if (tried > app.App.staticConfig.MAX_TRY) {
