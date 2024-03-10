@@ -63,6 +63,16 @@ export const Options = {
         description: "using proxy",
     },
 };
+export const Scripts = {
+    get: "./commands/get.js",
+    analyze: "./commands/analyze.js",
+    bin: "./commands/bin.js",
+    test: "./commands/test.js",
+    "bin/clean": "./commands/bin/clean.js",
+    "bin/clear": "./commands/bin/clean.js",
+    "bin/list": "./commands/bin/list.js",
+    "bin/whereis": "./commands/bin/whereis.js",
+};
 
 /**
  * @typedef {import("./cli.js").CommandDefinition} CommandDefinition
@@ -77,50 +87,50 @@ export const Commands = {
     "get": {
         name: "get",
         description: "get product information from amazon",
-        scriptPath: "./commands/get.js",
+        scriptPath: Scripts.get,
         options: [Options.query, Options.output, Options.maxTask, Options.maxConcurrency, Options.maxReviews, Options.timeOut, Options.headful, Options.debug, Options.verbose, Options.lowRam, Options.proxy],
     },
     "analyze": {
         name: "analyze",
         description: "analyze product information",
-        scriptPath: "./commands/analyze.js",
+        scriptPath: Scripts.analyze,
         options: [Options.debug, Options.verbose]
     },
     "bin": {
         name: "bin",
         description: "bin methods",
-        scriptPath: "./commands/bin.js",
+        scriptPath: Scripts.bin,
         children: {
             "clean": {
                 name: "clean",
                 description: "Clean the bin",
-                scriptPath: "./commands/bin/clean.js",
-                options: [Options.force, Options.debug]
+                scriptPath: Scripts["bin/clean"],
+                options: [Options.force]
             },
             "clear": {
                 name: "clear",
                 description: "Clean the bin",
-                scriptPath: "./commands/bin/clean.js",
-                options: [Options.force, Options.debug]
+                scriptPath: Scripts["bin/clean"],
+                options: [Options.force]
             },
             "list": {
                 name: "list",
                 description: "List the bin",
-                scriptPath: "./commands/bin/list.js",
-                options: [Options.debug]
+                scriptPath: Scripts["bin/list"],
+                options: []
             },
             "whereis": {
                 name: "whereis",
                 description: "Show the bin location",
-                scriptPath: "./commands/bin/whereis.js",
-                options: [Options.debug]
+                scriptPath: Scripts["bin/whereis"],
+                options: []
             },
         },
     },
     "test": {
         name: "test",
         description: "test methods",
-        scriptPath: "./commands/test.js",
+        scriptPath: Scripts.test,
         options: [Options.debug]
     }
 };
