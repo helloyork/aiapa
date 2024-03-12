@@ -1,5 +1,4 @@
 
-/**@type {{[ket: string]: import("./cli.js").OptionDefinition}} */
 export const Options = {
     apiKey: {
         flags: "-k, --key, --api-key <key>",
@@ -62,6 +61,10 @@ export const Options = {
         flags: "--proxy",
         description: "using proxy",
     },
+    file: {
+        flags: "-f, --file <path>",
+        description: "The path to the file",
+    }
 };
 export const Scripts = {
     get: "./commands/get.js",
@@ -94,7 +97,7 @@ export const Commands = {
         name: "analyze",
         description: "analyze product information",
         scriptPath: Scripts.analyze,
-        options: [Options.debug, Options.verbose]
+        options: [Options.debug, Options.verbose, Options.file]
     },
     "bin": {
         name: "bin",

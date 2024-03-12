@@ -53,6 +53,7 @@ class App {
         timeOut: 60 * 1000,
         envFile: path.resolve(process.cwd(), ".env"),
         apiKey: process.env.GEMINI_API_KEY || "",
+        file: null
     };
     static exitCode = {
         OK: 0,

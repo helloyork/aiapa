@@ -34,6 +34,7 @@ interface AppConfig {
     maxConcurrency: number;
     timeOut: number;
     maxReviews: number;
+    file: null | string;
 }
 interface EnvConfig {
     GEMINI_API_KEY: string;

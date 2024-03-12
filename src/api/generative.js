@@ -25,48 +25,31 @@ export const MIME = {
  * @typedef {import("../cli.js").AppConfig} AppConfig
  */
 /**
- * @typedef {Object} Model
+ * @typedef {Object} ModelConfig
  * @property {string} model
  * @property {number} inputTokenLimit
  * @property {number} outputTokenLimit
  * @property {number} rpm
  */
 
-export class GenerativeAI {
-    static GET_API_KEY = "https://makersuite.google.com/app/apikey";
-    static defaultAiConfig = {
-    };
-
-    models = models;
-    /**@returns {Model} */
-    getModelConfig() {
-        return this.models[this.app.config.model];
-    }
+class Model {
     /**
-     * @constructor
+     * 
      * @param {App} app 
+     * @param {GenerativeAI} generativeAI 
+     * @param {{model: string, models: ModelConfig[], apikey: string}} modelConfig 
      */
-    constructor(app, aiConfig = {}) {
+    constructor(app, generativeAI, modelConfig) {
         this.app = app;
-        this.init();
-        this.running = true;
-        this.aiConfig = { ...GenerativeAI.defaultAiConfig, ...aiConfig };
-        this.rpm = new RPM(this.getModelConfig().rpm);
+        this.generativeAI = generativeAI;
+        this.modelConfig = modelConfig;
+        this.api = new GoogleGenerativeAI(modelConfig.apikey).getGenerativeModel({ model: this.getModelConfig().model});
     }
-    async tryExecute(f, whenError = () => { }) {
-        try {
-            return await f();
-        } catch (err) {
-            whenError(err);
-            this.app.Logger.error("Error occurred while calling GenerativeAI");
-            this.app.Logger.error(err);
-            return new Rejected(err.message);
-        }
+    getModelConfig() {
+        return this.modelConfig.models[this.modelConfig.model];
     }
-    async imgsToBase64(imgs) {
-        return await Promise.all(imgs.map(async (img) => {
-            return await this.imgToBase64(img);
-        }));
+    async generateContent(prompts) {
+        return await this.api.generateContent(prompts);
     }
     /**
      * @param {string} path 
@@ -81,27 +64,89 @@ export class GenerativeAI {
             }
         };
     }
+    async imgsToBase64(imgs) {
+        return await Promise.all(imgs.map(async (img) => {
+            return await this.imgToBase64(img);
+        }));
+    }
+    async countTokens(text) {
+        return await this.api.countTokens(text);
+    }
     /**
      * @param {string | import("@google/generative-ai").GenerateContentRequest | (string | import("@google/generative-ai").Part)[]} prompts 
      * @returns {Promise<string|Rejected>}
      */
     async call(prompts) {
-        if(!this.running) return new Rejected("GenerativeAI is exited.");
         return await this.tryExecute(async () => {
-            return await (this.rpm.createTask(async () => {
-                let result = await this.model.generateContent(prompts);
+            return await (this.generativeAI.rpm.createTask(async () => {
+                let result = await this.generateContent(prompts);
                 let response = result.response;
                 return response.text();
             })());
         });
     }
-    async countTokens(text) {
-        return await this.model.countTokens(text);
+    async tryExecute(f, whenError = () => { }) {
+        try {
+            return await f();
+        } catch (err) {
+            whenError(err);
+            this.app.Logger.error("Error occurred while calling GenerativeAI");
+            this.app.Logger.error(err);
+            return new Rejected(err.message);
+        }
+    }
+
+}
+
+export class GenerativeAI {
+    static GET_API_KEY = "https://makersuite.google.com/app/apikey";
+    static defaultAiConfig = {
+        apikeyPool: [],
+    };
+
+    models = models;
+    /**@type {Model} */
+    api = null;
+    /**@returns {Model} */
+    getModelConfig() {
+        return this.models[this.app.config.model];
+    }
+    /**
+     * @constructor
+     * @param {App} app 
+     */
+    constructor(app, aiConfig = {}) {
+        this.app = app;
+        this.running = true;
+        this.aiConfig = { ...GenerativeAI.defaultAiConfig, ...aiConfig };
+        this.rpm = new RPM(this.getModelConfig().rpm);
+        
+        this.init();
+    }
+    getAPI() {
+        return this.api;
+    }
+    getAPIRotated() {
+        return this.rotatePool().getAPI();
+    }
+    rotatePool() {
+        if(this.api) this._pool.push(this.api);
+        this.api = this._pool.shift();
+        if (!this.api) {
+            throw this.app.Logger.error(new Error("No API key available"));
+        }
+        return this;
     }
     init() {
-        if (!this.getModelConfig()) throw new Error(`Model ${this.app.config.model} not found`);
-        this.api = new GoogleGenerativeAI(this.app.config.GEMINI_API_KEY || this.app.config.apiKey);
-        this.model = this.api.getGenerativeModel(this.getModelConfig());
+        this._pool = [];
+        this.aiConfig.apikeyPool.forEach(apikey => {
+            this._pool.push(new Model(this.app, this, {
+                model: this.app.config.model,
+                models,
+                apikey
+            }));
+        });
+        this.rotatePool();
         return this;
     }
     exit() {

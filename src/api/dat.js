@@ -132,6 +132,17 @@ export async function getFilesInDir(dirPath) {
     return await fs.readdir(path.resolve(process.cwd(), dirPath));
 }
 
+/**
+ * @param {absolutePath} dirPath 
+ * @returns {Promise<{[key: string]: absolutePath}>}
+ */
+export async function getFilesToObj(dirPath) {
+    return (await getFilesInDir(dirPath)).reduce((obj, file) => {
+        obj[file] = path.resolve(process.cwd(), dirPath, file);
+        return obj;
+    }, {});
+}
+
 export async function clearDirectory(dirPath, whenDeleted = () => { }) {
     if (await directoryExists(dirPath)) {
         const files = await fs.readdir(dirPath);
