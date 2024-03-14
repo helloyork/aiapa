@@ -85,6 +85,10 @@ export async function saveFile(filePath, data, encoding = "utf-8") {
     return _path;
 }
 
+export async function readJSON(filePath) {
+    return JSON.parse(await loadFile(filePath));
+}
+
 /**
  * @param {absolutePath} filePath 
  * @param {string} name 
