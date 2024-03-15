@@ -69,6 +69,12 @@ After startup, you will be asked for the file to be analyzed. This file should b
 
 Allows using --api-key to pass in multiple api keys to complete the api key pool
 
+for example: 
+
+```bash
+aiapa analyze --api-key AIxxxxxxx AIxxxxxxx2
+```
+
 - **Code interface startup**: Start from code, you need to pass in the file parameter
 
 ```javascript
