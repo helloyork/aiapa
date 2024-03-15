@@ -34,6 +34,17 @@ export interface Product extends ProductDetails {
     reviews: ProductReview;
 }
 
+export interface Summary {
+    data: {[key: string]: string}[];
+}
+
+export interface SummarizedProduct extends Product {
+    summary: {
+        positive: Summary[] | null;
+        critical: Summary[] | null[];
+    };
+}
+
 export declare type ElementSelector = {
     querySelector?: string | string[];
     querySelectors?: { [key: string]: ElementSelector };

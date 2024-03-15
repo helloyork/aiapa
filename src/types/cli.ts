@@ -22,7 +22,7 @@ interface AppConfig {
     force: boolean;
     lowRam: boolean;
     proxy: boolean;
-    apiKey: string;
+    apiKey: string[];
     envFile: string;
     query: string;
     output: string;

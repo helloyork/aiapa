@@ -1,5 +1,5 @@
 
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from "@google/generative-ai";
 
 import { loadFile, loadFileSync } from "./dat.js";
 import { Rejected, RPM } from "../utils.js";
@@ -43,7 +43,13 @@ class Model {
         this.app = app;
         this.generativeAI = generativeAI;
         this.modelConfig = modelConfig;
-        this.api = new GoogleGenerativeAI(modelConfig.apikey).getGenerativeModel({ model: this.getModelConfig().model});
+        this.api = new GoogleGenerativeAI(modelConfig.apikey).getGenerativeModel({
+            model: this.getModelConfig().model,
+            safetySettings: this.getSafetySettings(),
+            generationConfig: this.getGenerationConfig()
+        }, {
+            timeout: app.config.timeout
+        });
     }
     getModelConfig() {
         return this.modelConfig.models[this.modelConfig.model];
@@ -95,6 +101,21 @@ class Model {
             return new Rejected(err.message);
         }
     }
+    getSafetySettings() {
+        return [
+            {
+                category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+                threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+            }
+        ];
+    }
+    getGenerationConfig() {
+        return {
+            temperature: 0.9,
+            topP: 0.1,
+            topK: 16,
+        };
+    }
 
 }
 
@@ -119,8 +140,12 @@ export class GenerativeAI {
         this.app = app;
         this.running = true;
         this.aiConfig = { ...GenerativeAI.defaultAiConfig, ...aiConfig };
-        this.rpm = new RPM(this.getModelConfig().rpm);
-        
+
+        if (!this.aiConfig.apikeyPool.length) {
+            throw new Error("No API key provided");
+        }
+        this.rpm = new RPM(this.getModelConfig().rpm * this.aiConfig.apikeyPool.length);
+
         this.init();
     }
     getAPI() {
@@ -130,7 +155,7 @@ export class GenerativeAI {
         return this.rotatePool().getAPI();
     }
     rotatePool() {
-        if(this.api) this._pool.push(this.api);
+        if (this.api) this._pool.push(this.api);
         this.api = this._pool.shift();
         if (!this.api) {
             throw this.app.Logger.error(new Error("No API key available"));

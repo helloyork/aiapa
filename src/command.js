@@ -1,7 +1,7 @@
 
 export const Options = {
     apiKey: {
-        flags: "-k, --key, --api-key <key>",
+        flags: "-k, --api-key [keys...]",
         description: "The API key to use",
     },
     maxTask: {
@@ -64,7 +64,11 @@ export const Options = {
     file: {
         flags: "-f, --file <path>",
         description: "The path to the file",
-    }
+    },
+    model: {
+        flags: "-m, --model <string>",
+        description: "The model to use",
+    },
 };
 export const Scripts = {
     get: "./commands/get.js",
@@ -97,7 +101,7 @@ export const Commands = {
         name: "analyze",
         description: "analyze product information",
         scriptPath: Scripts.analyze,
-        options: [Options.debug, Options.verbose, Options.file]
+        options: [Options.debug, Options.verbose, Options.file, Options.model]
     },
     "bin": {
         name: "bin",
@@ -134,6 +138,6 @@ export const Commands = {
         name: "test",
         description: "test methods",
         scriptPath: Scripts.test,
-        options: [Options.debug]
+        options: [...Object.values(Options)]
     }
 };

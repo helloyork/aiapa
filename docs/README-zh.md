@@ -1,8 +1,12 @@
 # AIAPA - 亚马逊产品分析工具
 
-AIAPA是一个基于Gemini驱动的亚马逊产品分析工具，目前处于开发阶段。它支持通过`get`指令下载商品数据，尽管还有待完善，但我们欢迎通过issue提出任何遇到的问题或建议。
+AIAPA是一个基于Gemini驱动的亚马逊产品分析工具，目前处于开发阶段。尽管还有待完善，但我们欢迎通过issue提出任何遇到的问题或建议。
 
 该工具可能导致短时间的软封禁和永久的封禁！请在使用之前谨慎考虑，并且设置合理的任务量！
+
+主要功能：  
+使用get命令获取商品数据  
+使用analyze命令对产品优缺点进行总结
 
 ## 安装指南
 
@@ -57,7 +61,32 @@ app.on("beforeCommandRun", (cmd, mod) => {
 }).run(Commands.get);
 ```
 
+### Analyze命令使用示例
+
+- **命令行启动**：输入`aiapa analyze`启动一次分析任务
+
+启动之后将会询问要分析的文件，这个文件应该是由get命令生成的符合规范的产品信息
+
+允许使用--api-key传入多个api key来完成api key pool
+
+- **代码接口启动**：从代码启动，需要传入file参数
+
+```javascript
+import { app, Commands } from "aiapa";
+
+app.setUserConfig({
+    file: "./laptop-result-2024-03-15_08-51-58.json"
+}).load().run(Commands.analyze);
+```
+
 ## 更新
+
+##  2024/3/15
+
+本次更新添加了以下内容：
+
+1. analyze command
+2. Support the use of apikey pool
 
 ### 2024/3/5
 
