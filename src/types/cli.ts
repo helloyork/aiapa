@@ -2,7 +2,7 @@
 import * as commander from 'commander';
 import { absolutePath, relativePath } from './commands/dat';
 import { UI } from "./ui";
-import { Commands } from './command';
+import { Commands, Options } from './command';
 
 import * as get from '../commands/get';
 import * as bin from '../commands/bin';
@@ -64,6 +64,7 @@ export declare class App {
     static loadScript: (scriptPath: relativePath) => Promise<any>;
     static getFilePath: (filePath: relativePath) => absolutePath;
     static Option: commander.Option;
+    static Options: typeof Options
     static UI: typeof UI;
     static Commands: Commands;
     static staticConfig: {
@@ -88,6 +89,10 @@ export declare class App {
     isImported: boolean;
     events: EventEmitter;
     mainModule: any;
+    program: commander.Command;
+    name: string;
+    description: string;
+    version: string;
 
     get App(): typeof App;
     get options(): commander.OptionValues;
@@ -103,7 +108,7 @@ export declare class App {
      * app.run("bin.list");
      * // or using Command Definition
      * import { app, Commands } from "aiapa";
-     * app.run(Commands.bin.list);
+     * app.run(Commands.bin);
      */
     public run: (cmd: string | CommandDefinition) => Promise<any>;
     runCommand: (command: commander.Command, config: CommandDefinition) => Promise<any>;

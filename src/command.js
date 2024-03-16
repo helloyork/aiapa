@@ -50,7 +50,7 @@ export const Options = {
     },
     maxReviews: {
         flags: "-r, --max-reviews <number>",
-        description: "The maximum number of pages to get reviews from, can't more than 10 pages (1 page = 10 reviews)",
+        description: "The maximum number of pages to get reviews from, can't more than 10 pages (1 page = 10 critical reviews + 10 positive reviews)",
         defaultValue: 10,
     },
     lowRam: {
@@ -139,5 +139,11 @@ export const Commands = {
         description: "test methods",
         scriptPath: Scripts.test,
         options: [...Object.values(Options)]
-    }
+    },
+    "start": {
+        name: "start",
+        description: "AIAPA wizard",
+        scriptPath: "./commands/start.js",
+        options: [Options.force, Options.debug, Options.verbose]
+    },
 };

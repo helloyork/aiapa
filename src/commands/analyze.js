@@ -66,6 +66,8 @@ export default async function main(app) {
         ), JSON.stringify(results, null, 4)))}`);
 
         app.Logger.info(`Time taken: ${Date.now() - time}ms`);
+
+        return results;
     } catch (err) {
         throw app.Logger.error(err);
     } finally {

@@ -9,7 +9,7 @@ import dotenv from "dotenv";
 import { Logger, EventEmitter } from "./utils.js";
 import ui from "./ui.js";
 import { resolveFromCwd } from "./api/dat.js";
-import { Commands } from "./command.js";
+import { Commands, Options } from "./command.js";
 
 
 const { program, Option } = commander;
@@ -26,6 +26,7 @@ class App {
         return resolve(dirname(url.fileURLToPath(import.meta.url)), relativePath);
     }
     static Option = Option;
+    static Options = Options;
     static UI = ui;
     static Commands = Commands;
     static staticConfig = {
@@ -94,6 +95,9 @@ class App {
             .name(name)
             .description(description)
             .version(version);
+        this.name = name;
+        this.description = description;
+        this.version = version;
         return this;
     }
     getCommandTree(parent) {

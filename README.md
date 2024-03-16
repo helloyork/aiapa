@@ -20,6 +20,11 @@ npm install aiapa -g
 
 AIAPA can be started from the command line or through a code interface, and supports passing in parameters, calling commands, listening to events, and more.
 
+start with:  
+```bash
+aiapa start
+```
+
 ### Example of using the Get command
 
 - **Command line startup**: enter `aiapa get` to start the task, the sample code is as follows:

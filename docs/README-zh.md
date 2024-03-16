@@ -20,6 +20,11 @@ npm install aiapa -g
 
 AIAPA可以通过命令行或代码接口启动，支持传入参数、调用命令、监听事件等功能。
 
+快速开始:  
+```bash
+aiapa start
+```
+
 ### Get命令使用示例
 
 - **命令行启动**：输入`aiapa get`启动任务，示例代码如下：
@@ -75,7 +80,8 @@ app.on("beforeCommandRun", (cmd, mod) => {
 import { app, Commands } from "aiapa";
 
 app.setUserConfig({
-    file: "./laptop-result-2024-03-15_08-51-58.json"
+    file: "./laptop-result-2024-03-15_08-51-58.json",
+    apiKey: ["AIxxxxxx"]
 }).load().run(Commands.analyze);
 ```
 

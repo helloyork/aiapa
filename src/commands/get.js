@@ -256,6 +256,8 @@ export default async function main(app) {
             };
             let res = await app.UI.select("Save files to: ", Object.keys(options));
             if (res) await options[res](result);
+        } else {
+            app.config.file = joinPath(process.cwd(), app.config.output, `result-${time}.json`);
         }
 
     } catch (error) {
