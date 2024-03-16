@@ -96,8 +96,8 @@ app.setUserConfig({
 
 This update added the following features:
 
-1. analyze命令  
-2. 支持使用apikey池  
+1. analyze command
+2. Support the use of apikey pool
 
 
 ### 2024/3/5
