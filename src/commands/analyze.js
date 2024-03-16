@@ -9,7 +9,7 @@ import path from "path";
 const settings = {
     MAX_PROMPT_LINES: 500,
     MAX_REVIEW_PER_PRODUCT: 8,
-    prompts: ["summarize these product reviews and give me its ", ", return as json format, no markdown, no extra characters, just return json: {\"data\": Object.<reason, detail>[]}\nSTART\n", "\nEND"]
+    prompts: ["summarize these product reviews and give me its ", ", return as json format, no markdown, no extra characters, just return json: {\"data\": {[key: reason]: detail}}\nSTART\n", "\nEND"]
 };
 
 const adapt = {
@@ -25,7 +25,7 @@ const adapt = {
 /**@param {import("../types").App} app */
 export default async function main(app) {
     if (!app.config.GEMINI_API_KEY) {
-        app.Logger.warn(`Get your API key from ${app.UI.hex(app.UI.Colors.Blue)(GenerativeAI.GET_API_KEY)}`);
+        app.Logger.warn(`You don't have an api key yet, Get your API key from ${app.UI.hex(app.UI.Colors.Blue)(GenerativeAI.GET_API_KEY)}`);
         app.exit(app.App.exitCode.OK);
     }
 
@@ -63,7 +63,7 @@ export default async function main(app) {
         let results = await summarize({ app, ai }, data);
         app.Logger.log(`saved to ${app.UI.hex(app.UI.Colors.Blue)(await saveFile(resolve(app.config.output,
             `summarized-${formatDate(new Date())}-${path.basename(app.config.file)}.json`
-        ), JSON.stringify(results, null, 4)))}`);
+        ), JSON.stringify(results)))}`);
 
         app.Logger.info(`Time taken: ${Date.now() - time}ms`);
 
