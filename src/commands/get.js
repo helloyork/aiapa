@@ -2,7 +2,7 @@
 
 
 import { Browser } from "../api/puppeteer.js";
-import { TaskPool, randomInt, createProgressBar, createMultiProgressBar, sleep } from "../utils.js";
+import { TaskPool, randomInt, createProgressBar, createMultiProgressBar, sleep, isValidUrl } from "../utils.js";
 import { loadFile, saveFile, joinPath, saveCSV, splitByNewLine, formatDate } from "../api/dat.js";
 import { Server } from "../api/server.js";
 
@@ -235,10 +235,18 @@ export default async function main(app) {
              */
             let options = {
                 "save as .json": async function (res) {
-                    let path = await saveFile(joinPath(app.config.output, `${app.config.query}-result-${time}.json`), JSON.stringify(res));
+                    let title = app.config.query;
+                    if (isValidUrl(app.config.query) && new URL(app.config.query).hostname === new URL(AMAZON_SEARCH_URL).hostname) {
+                        title = new URL(app.config.query).pathname.split("/").filter(Boolean)[0];
+                    }
+                    let path = await saveFile(joinPath(app.config.output, `${title}-result-${time}.json`), JSON.stringify(res));
                     app.Logger.log("Saved to file: " + path);
                 },
                 "save as .csv": async function (res) {
+                    let title = app.config.query;
+                    if (isValidUrl(app.config.query) && new URL(app.config.query).hostname === new URL(AMAZON_SEARCH_URL).hostname) {
+                        title = new URL(app.config.query).pathname.split("/").filter(Boolean)[0];
+                    }
                     let output = [];
                     res.forEach(r => {
                         let o = {};
@@ -248,7 +256,7 @@ export default async function main(app) {
                         });
                         output.push(o);
                     });
-                    let path = await saveCSV(app.config.output, `${app.config.query}-result-${time}`, output);
+                    let path = await saveCSV(app.config.output, `${title}-result-${time}`, output);
                     app.Logger.log("Saved to file: " + path);
                 },
                 "log to console": (res) => app.Logger.log(JSON.stringify(res)),
@@ -274,21 +282,7 @@ export default async function main(app) {
     return result;
 }
 
-/**
- * @param {{browser: Browser, app: import("../cli.js").App, page: import("puppeteer").Page, search: string}} arg0
- * @returns {Promise<Product[]>}
- */
-async function search({ app, browser, page, search }) {
-    if (!app.config.debug) await browser.blockResources(page, config.blockedResourceTypes);
-    if (!search && !search.length) {
-        let res = await app.UI.input("Pleae type in query to search for:");
-        if (!res || !res.length) throw new Error("No query provided, please provide by --query <string>");
-        app.config.query = search = res;
-    }
-    if (app.config.lowRam && app.config.maxConcurrency > 3) {
-        app.Logger.warn("Max Concurrecy is set to 3 because of low ram mode");
-        app.config.maxConcurrency = 5;
-    }
+async function getProductLinks({ app, browser, page, search }) {
     let url = new URL(AMAZON_SEARCH_URL);
     url.searchParams.append("k", search);
     url.searchParams.append("s", "exact-aware-popularity-rank");
@@ -317,6 +311,27 @@ async function search({ app, browser, page, search }) {
 
         app.Logger.verbose(`Found ${links.length} links`);
     }
+
+    return links;
+}
+
+/**
+ * @param {{browser: Browser, app: import("../cli.js").App, page: import("puppeteer").Page, search: string}} arg0
+ * @returns {Promise<Product[]>}
+ */
+async function search({ app, browser, page, search }) {
+    if (!app.config.debug) await browser.blockResources(page, config.blockedResourceTypes);
+    if (!search && !search.length) {
+        let res = await app.UI.input("Pleae type in query to search for (or a link):");
+        if (!res || !res.length) throw new Error("No query provided, please provide by --query <string>");
+        app.config.query = search = res;
+    }
+    if (app.config.lowRam && app.config.maxConcurrency > 3) {
+        app.Logger.warn("Max Concurrecy is set to 3 because of low ram mode");
+        app.config.maxConcurrency = 5;
+    }
+
+    let links = isValidUrl(search) ? [search] : await getProductLinks({ app, browser, page, search });
 
     await browser.free(page);
 
