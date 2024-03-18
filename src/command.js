@@ -1,8 +1,7 @@
 
-/**@type {{[ket: string]: import("./cli.js").OptionDefinition}} */
 export const Options = {
     apiKey: {
-        flags: "-k, --key, --api-key <key>",
+        flags: "-k, --api-key [keys...]",
         description: "The API key to use",
     },
     maxTask: {
@@ -51,7 +50,7 @@ export const Options = {
     },
     maxReviews: {
         flags: "-r, --max-reviews <number>",
-        description: "The maximum number of pages to get reviews from, can't more than 10 pages (1 page = 10 reviews)",
+        description: "The maximum number of pages to get reviews from, can't more than 10 pages (1 page = 10 critical reviews + 10 positive reviews)",
         defaultValue: 10,
     },
     lowRam: {
@@ -62,6 +61,24 @@ export const Options = {
         flags: "--proxy",
         description: "using proxy",
     },
+    file: {
+        flags: "-f, --file <path>",
+        description: "The path to the file",
+    },
+    model: {
+        flags: "-m, --model <string>",
+        description: "The model to use",
+    },
+};
+export const Scripts = {
+    get: "./commands/get.js",
+    analyze: "./commands/analyze.js",
+    bin: "./commands/bin.js",
+    test: "./commands/test.js",
+    "bin/clean": "./commands/bin/clean.js",
+    "bin/clear": "./commands/bin/clean.js",
+    "bin/list": "./commands/bin/list.js",
+    "bin/whereis": "./commands/bin/whereis.js",
 };
 
 /**
@@ -77,50 +94,56 @@ export const Commands = {
     "get": {
         name: "get",
         description: "get product information from amazon",
-        scriptPath: "./commands/get.js",
+        scriptPath: Scripts.get,
         options: [Options.query, Options.output, Options.maxTask, Options.maxConcurrency, Options.maxReviews, Options.timeOut, Options.headful, Options.debug, Options.verbose, Options.lowRam, Options.proxy],
     },
     "analyze": {
         name: "analyze",
         description: "analyze product information",
-        scriptPath: "./commands/analyze.js",
-        options: [Options.debug, Options.verbose]
+        scriptPath: Scripts.analyze,
+        options: [Options.debug, Options.verbose, Options.file, Options.model]
     },
     "bin": {
         name: "bin",
         description: "bin methods",
-        scriptPath: "./commands/bin.js",
+        scriptPath: Scripts.bin,
         children: {
             "clean": {
                 name: "clean",
                 description: "Clean the bin",
-                scriptPath: "./commands/bin/clean.js",
-                options: [Options.force, Options.debug]
+                scriptPath: Scripts["bin/clean"],
+                options: [Options.force]
             },
             "clear": {
                 name: "clear",
                 description: "Clean the bin",
-                scriptPath: "./commands/bin/clean.js",
-                options: [Options.force, Options.debug]
+                scriptPath: Scripts["bin/clean"],
+                options: [Options.force]
             },
             "list": {
                 name: "list",
                 description: "List the bin",
-                scriptPath: "./commands/bin/list.js",
-                options: [Options.debug]
+                scriptPath: Scripts["bin/list"],
+                options: []
             },
             "whereis": {
                 name: "whereis",
                 description: "Show the bin location",
-                scriptPath: "./commands/bin/whereis.js",
-                options: [Options.debug]
+                scriptPath: Scripts["bin/whereis"],
+                options: []
             },
         },
     },
     "test": {
         name: "test",
         description: "test methods",
-        scriptPath: "./commands/test.js",
-        options: [Options.debug]
-    }
+        scriptPath: Scripts.test,
+        options: [...Object.values(Options)]
+    },
+    "start": {
+        name: "start",
+        description: "AIAPA wizard",
+        scriptPath: "./commands/start.js",
+        options: [Options.force, Options.debug, Options.verbose]
+    },
 };

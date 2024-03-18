@@ -1,20 +1,21 @@
 import { app, Commands } from "../index.js";
 
-// let config1 = {
+// app.setUserConfig({
 //     verbose: true,
 //     query: "laptop",
-//     maxTask: 10,
+//     maxTask: 3,
 //     maxConcurrency: 5,
 //     maxReviews: 5,
-//     output: "./bin"
-// };
+//     output: "./bin",
+//     envFile: "../.env"
+// })
+//     .load()
+//     .on("beforeCommandRun", (...args) => {
+//         console.log(args);
+//     }).run({
+//         ...Commands.get,
+//         action: (result)=> console.log(result)
+//     });
 
-app.setUserConfig({
-    debug: true,
-    envFile: "../.env"
-}).load().on("beforeCommandRun", (cmd, mod) => {
-    mod.registerDetailSelector("links", {
-        querySelector: "a",
-        evaluate: (el) => el.href
-    });
-}).run(Commands.get);
+
+

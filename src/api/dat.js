@@ -85,6 +85,10 @@ export async function saveFile(filePath, data, encoding = "utf-8") {
     return _path;
 }
 
+export async function readJSON(filePath) {
+    return JSON.parse(await loadFile(filePath));
+}
+
 /**
  * @param {absolutePath} filePath 
  * @param {string} name 
@@ -130,6 +134,17 @@ export async function directoryExists(dirPath) {
  */
 export async function getFilesInDir(dirPath) {
     return await fs.readdir(path.resolve(process.cwd(), dirPath));
+}
+
+/**
+ * @param {absolutePath} dirPath 
+ * @returns {Promise<{[key: string]: absolutePath}>}
+ */
+export async function getFilesToObj(dirPath) {
+    return (await getFilesInDir(dirPath)).reduce((obj, file) => {
+        obj[file] = path.resolve(process.cwd(), dirPath, file);
+        return obj;
+    }, {});
 }
 
 export async function clearDirectory(dirPath, whenDeleted = () => { }) {

@@ -82,6 +82,23 @@ export async function select(message, choices) {
 }
 
 /**
+ * Prompt for a single selection from a list of objects.
+ * @param {string} message - The message to display to the user.
+ * @param {Object} choiceObj - The list of choices.
+ * @param {any[]} args - The arguments to pass to the selected function.
+ * @returns {Promise<any>} The result of the selected function.
+ */
+export async function selectByObject(message, choiceObj) {
+    const { answer } = await inquirer.prompt({
+        type: "list",
+        name: "answer",
+        message,
+        choices: Object.keys(choiceObj),
+    });
+    return choiceObj[answer];
+}
+
+/**
  * Prompt for multiple selections from a list.
  * @param {string} message - The message to display to the user.
  * @param {string[]} choices - The list of choices.
@@ -110,6 +127,7 @@ export default {
     password,
     confirm,
     select,
+    selectByObject,
     checkbox,
     hex,
     separator,

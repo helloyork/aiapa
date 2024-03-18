@@ -2,21 +2,22 @@
 
 
 import { Browser } from "../api/puppeteer.js";
-import { TaskPool, randomInt, createProgressBar, createMultiProgressBar, sleep } from "../utils.js";
+import { TaskPool, randomInt, createProgressBar, createMultiProgressBar, sleep, isValidUrl } from "../utils.js";
 import { loadFile, saveFile, joinPath, saveCSV, splitByNewLine, formatDate } from "../api/dat.js";
 import { Server } from "../api/server.js";
+
+
+/**
+ * @typedef {import("../types").Product} Product
+ * @typedef {import("../types").ElementSelector} ElementSelector
+ */
+
 
 const AMAZON_SEARCH_URL = "https://www.amazon.com/s";
 const config = {
     blockedResourceTypes: ["image", "font", "stylesheet"],
     proxies: [],
 };
-/**
- * @typedef {Object} ElementSelector
- * @property {string|string[]} [querySelector]
- * @property {Object.<string, ElementSelector>} [querySelectors]
- * @property {function(Element|Object.<string, Element|Element[]>): any} [evaluate]
- */
 const Selector = {
     title: "#productTitle",
     price: "#corePrice_feature_div span.a-price > span",
@@ -185,40 +186,8 @@ export function registerProxy(proxy) {
     return [...config.proxies];
 }
 
-/**
- * @typedef {Object} Review
- * @property {string} title
- * @property {string} rating
- * @property {string} date
- * @property {string} content
- */
-/**
- * @typedef {Object} Specificantions
- * @property {string[]} size
- * @property {string[]} style
- * @property {string[]} color
- * @property {string[]} pattern
- */
-/**
- * @typedef {Object} ProductDetails
- * @property {string} href
- * @property {string} title
- * @property {string} price
- * @property {string} sales
- * @property {string} star
- * @property {Specificantions} specificantions
- * @property {number} reviewNumber
- * @property {string} productsReviewLink
- */
-/**
- * @typedef {Object} ProductReview
- * @property {Review[]} positive
- * @property {Review[]} critical
- */
-/**
- * @typedef {ProductDetails & {reviews: ProductReview}} Product
- * @property {Review[]} reviews
- */
+
+
 
 /**@param {import("../cli.js").App} app */
 export default async function main(app) {
@@ -266,10 +235,18 @@ export default async function main(app) {
              */
             let options = {
                 "save as .json": async function (res) {
-                    let path = await saveFile(joinPath(app.config.output, `${app.config.query}-result-${time}.json`), JSON.stringify(res));
+                    let title = app.config.query;
+                    if (isValidUrl(app.config.query) && new URL(app.config.query).hostname === new URL(AMAZON_SEARCH_URL).hostname) {
+                        title = new URL(app.config.query).pathname.split("/").filter(Boolean)[0];
+                    }
+                    let path = await saveFile(joinPath(app.config.output, `${title}-result-${time}.json`), JSON.stringify(res));
                     app.Logger.log("Saved to file: " + path);
                 },
                 "save as .csv": async function (res) {
+                    let title = app.config.query;
+                    if (isValidUrl(app.config.query) && new URL(app.config.query).hostname === new URL(AMAZON_SEARCH_URL).hostname) {
+                        title = new URL(app.config.query).pathname.split("/").filter(Boolean)[0];
+                    }
                     let output = [];
                     res.forEach(r => {
                         let o = {};
@@ -279,7 +256,7 @@ export default async function main(app) {
                         });
                         output.push(o);
                     });
-                    let path = await saveCSV(app.config.output, `${app.config.query}-result-${time}`, output);
+                    let path = await saveCSV(app.config.output, `${title}-result-${time}`, output);
                     app.Logger.log("Saved to file: " + path);
                 },
                 "log to console": (res) => app.Logger.log(JSON.stringify(res)),
@@ -287,21 +264,14 @@ export default async function main(app) {
             };
             let res = await app.UI.select("Save files to: ", Object.keys(options));
             if (res) await options[res](result);
+        } else {
+            app.config.file = joinPath(process.cwd(), app.config.output, `result-${time}.json`);
         }
 
     } catch (error) {
         app.Logger.error("An error occurred");
         app.Logger.error(error);
     } finally {
-        // let closed = await Promise.all([browser.close, server.close].map(v => {
-        //     return new Promise((resolve) => {
-        //         browser.tryExecute(v, (err) => resolve(Rejected.isRejected(err) ? err : new Rejected(err)));
-        //     });
-        // }));
-        // if (closed.some(v => Rejected.isRejected(v))) {
-        //     app.Logger.error("Failed to stop application, error: ");
-        //     closed.filter(v => Rejected.isRejected(v)).forEach(v => app.Logger.error(v));
-        // }
         await browser.close();
         await server.close();
     }
@@ -312,21 +282,7 @@ export default async function main(app) {
     return result;
 }
 
-/**
- * @param {{browser: Browser, app: import("../cli.js").App, page: import("puppeteer").Page, search: string}} arg0
- * @returns {Promise<Product[]>}
- */
-async function search({ app, browser, page, search }) {
-    if (!app.config.debug) await browser.blockResources(page, config.blockedResourceTypes);
-    if (!search && !search.length) {
-        let res = await app.UI.input("Pleae type in query to search for:");
-        if (!res || !res.length) throw new Error("No query provided, please provide by --query <string>");
-        app.config.query = search = res;
-    }
-    if (app.config.lowRam && app.config.maxConcurrency > 3) {
-        app.Logger.warn("Max Concurrecy is set to 3 because of low ram mode");
-        app.config.maxConcurrency = 5;
-    }
+async function getProductLinks({ app, browser, page, search }) {
     let url = new URL(AMAZON_SEARCH_URL);
     url.searchParams.append("k", search);
     url.searchParams.append("s", "exact-aware-popularity-rank");
@@ -339,7 +295,7 @@ async function search({ app, browser, page, search }) {
         await page.goto(url.href, { timeout: app.config.timeOut });
         await page.waitForFunction(() => document.title.includes("Amazon.com") || document.title.includes("Sorry!"), { timeout: app.config.timeOut });
 
-        if((await page.title()).includes("Sorry!")) throw new Error("Access denied when searching for links: " + new URL(page.url()).pathname);
+        if ((await page.title()).includes("Sorry!")) throw new Error("Access denied when searching for links: " + new URL(page.url()).pathname);
 
         await browser.scrowDown(page);
         if (tried > app.App.staticConfig.MAX_TRY) {
@@ -355,6 +311,27 @@ async function search({ app, browser, page, search }) {
 
         app.Logger.verbose(`Found ${links.length} links`);
     }
+
+    return links;
+}
+
+/**
+ * @param {{browser: Browser, app: import("../cli.js").App, page: import("puppeteer").Page, search: string}} arg0
+ * @returns {Promise<Product[]>}
+ */
+async function search({ app, browser, page, search }) {
+    if (!app.config.debug) await browser.blockResources(page, config.blockedResourceTypes);
+    if (!search && !search.length) {
+        let res = await app.UI.input("Pleae type in query to search for (or a link):");
+        if (!res || !res.length) throw new Error("No query provided, please provide by --query <string>");
+        app.config.query = search = res;
+    }
+    if (app.config.lowRam && app.config.maxConcurrency > 3) {
+        app.Logger.warn("Max Concurrecy is set to 3 because of low ram mode");
+        app.config.maxConcurrency = 5;
+    }
+
+    let links = isValidUrl(search) ? [search] : await getProductLinks({ app, browser, page, search });
 
     await browser.free(page);
 
