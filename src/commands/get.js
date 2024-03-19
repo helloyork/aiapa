@@ -201,7 +201,7 @@ export default async function main(app) {
         , startTime = Date.now(), result;
     browser.usePlugin(Browser.Plugins.StealthPlugin());
 
-    app.Logger.info("Launching browser");
+    app.Logger.verbose("Launching browser");
     app.Logger.verbose("Import state: " + app.isImported);
     try {
         const UAs = splitByNewLine(await loadFile(app.App.getFilePath(app.App.staticConfig.USER_AGENTS_PATH)));
@@ -214,7 +214,7 @@ export default async function main(app) {
         }
 
         await browser.launch({ headless: !app.config.headful });
-        app.Logger.log("Browser launched");
+        app.Logger.info("Browser launched");
 
         browser.onBeforePage(async (page) => {
             await page.setUserAgent(UAs[randomInt(0, UAs.length - 1)]);
@@ -322,7 +322,7 @@ async function getProductLinks({ app, browser, page, search }) {
 async function search({ app, browser, page, search }) {
     if (!app.config.debug) await browser.blockResources(page, config.blockedResourceTypes);
     if (!search && !search.length) {
-        let res = await app.UI.input("Pleae type in query to search for (or a link):");
+        let res = await app.UI.input("Pleae type in query to search for (or a product link):");
         if (!res || !res.length) throw new Error("No query provided, please provide by --query <string>");
         app.config.query = search = res;
     }
@@ -434,7 +434,7 @@ async function searchReviews({ app, browser }, bar, datas) {
  * @param {{bar: import("cli-progress").MultiBar, data: ProductDetails, sort: "positive"|"critical"}} arg1
  * @returns {Promise<Review[]>}
  */
-async function getReviews({ browser, app }, { bar, data, sort = "positive" }) {
+async function getReviews({ browser, app }, { data, sort = "positive" }) {
     if (app.config.maxReviews > 10) {
         app.Logger.warn("Can't get more than 10 pages of reviews, setting to 10");
         app.config.maxReviews = 10;
@@ -444,7 +444,7 @@ async function getReviews({ browser, app }, { bar, data, sort = "positive" }) {
     }
     let url = new URL(data.productsReviewLink);
     url.searchParams.set("filterByStar", sort);
-    let childBar = bar.create(app.config.maxReviews, 0), pageUrl = url.href, reviews = [],
+    let pageUrl = url.href, reviews = [],
         maxTitleLength = 16, endStr = "...", txt = data.title.length > maxTitleLength ? data.title.slice(0, maxTitleLength - endStr.length) + endStr : data.title;
     await browser.page(async (page) => {
         let tried = 0;
@@ -485,9 +485,6 @@ async function getReviews({ browser, app }, { bar, data, sort = "positive" }) {
                     return output;
                 }));
                 reviews.push(...reviewDatas);
-                childBar.increment(1, {
-                    title: txt,
-                });
                 tried++;
 
                 let nextPageLink = await browser.try$Eval(page, { selector: Selector.nextPageButton, evaluate: (el) => el.href });
@@ -498,9 +495,7 @@ async function getReviews({ browser, app }, { bar, data, sort = "positive" }) {
         } catch (err) {
             app.Logger.error(err);
         } finally {
-            childBar.update(app.config.maxReviews, {
-                title: txt,
-            });
+            app.Logger.info(`Got ${reviews.length} reviews for ${txt}(${sort})`);
             await browser.free(page);
         }
     });

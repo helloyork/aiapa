@@ -8,15 +8,16 @@ The main function:
 Use the get command to obtain product data
 Use the analyze command to summarize the advantages and disadvantages of the product
 
-## Installation Guide
-
-AIAPA can be installed globally with the following command:
-
-```sh
-npm install aiapa -g
-```
-
 ## Instruction
+
+### Quick Start
+
+1. Install [nodejs](https://nodejs.org/en/download/)  
+2. type in `npm install aiapa -g` in terminal  
+3. Go to [Google AI Studio](https://makersuite.google.com/app/apikey) and get an API Key  
+4. 
+
+
 
 AIAPA can be started from the command line or through a code interface, and supports passing in parameters, calling commands, listening to events, and more.
 

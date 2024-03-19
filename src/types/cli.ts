@@ -81,6 +81,7 @@ export declare class App {
         ERROR: 1;
     };
     static exit: (code: typeof App.exitCode[keyof typeof App.exitCode]) => void;
+    static TitleArt: string;
 
     Logger: Logger;
     config: AppConfig & EnvConfig;

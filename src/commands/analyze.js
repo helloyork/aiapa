@@ -24,7 +24,7 @@ const adapt = {
 
 /**@param {import("../types").App} app */
 export default async function main(app) {
-    if (!app.config.GEMINI_API_KEY) {
+    if (!app.config.GEMINI_API_KEY && !app.config.apiKey.length) {
         app.Logger.warn(`You don't have an api key yet, Get your API key from ${app.UI.hex(app.UI.Colors.Blue)(GenerativeAI.GET_API_KEY)}`);
         app.exit(app.App.exitCode.OK);
     }
