@@ -15,7 +15,7 @@ Use the analyze command to summarize the advantages and disadvantages of the pro
 1. Install [nodejs](https://nodejs.org/en/download/)  
 2. type in `npm install aiapa -g` in terminal  
 3. Go to [Google AI Studio](https://makersuite.google.com/app/apikey) and get an API Key  
-4. 
+4. type `aiapa start` and enjoy :)  
 
 
 
