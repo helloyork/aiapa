@@ -18,6 +18,13 @@ npm install aiapa -g
 
 ## 使用说明
 
+### Quick Start
+
+1. 安装 [nodejs](https://nodejs.org/en/download/)  
+2. 在终端中输入`npm install aiapa -g`  
+3. 前往[Google AI Studio](https://makersuite.google.com/app/apikey) 并获取一个API密匙  
+4. 输入 `aiapa start` 然后等待奇迹 :)  
+
 AIAPA可以通过命令行或代码接口启动，支持传入参数、调用命令、监听事件等功能。
 
 快速开始:  
