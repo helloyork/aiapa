@@ -197,8 +197,8 @@ export class TaskPool {
     }
     async executeNextTask() {
         if (!this.running) return;
-        if (this.taskQueue.length === 0) return;
         await new Promise(resolve => setTimeout(resolve, this.delayBetweenTasks));
+        if (this.taskQueue.length === 0) return;
         const task = this.taskQueue.shift();
         return task().finally(() => {
             if (this.running && this.taskQueue.length > 0) {

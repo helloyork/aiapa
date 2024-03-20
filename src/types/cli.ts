@@ -13,7 +13,7 @@ import * as whereis from '../commands/bin/whereis';
 
 import { EventEmitter, Logger } from './utils';
 
-type CommandRuntimeModule = typeof get | typeof bin | typeof analyze | typeof clean | typeof list | typeof whereis;
+export type CommandRuntimeModule = typeof get | typeof bin | typeof analyze | typeof clean | typeof list | typeof whereis;
 type CommandRuntimeCallback = (app: App, module: CommandRuntimeModule) => void;
 interface AppConfig {
     debug: boolean;
@@ -158,6 +158,7 @@ export declare class App {
      * @returns 
      */
     public on(event: "beforeCommandRun", callback: CommandRuntimeCallback): this;
+    public once(event: "beforeCommandRun", callback: CommandRuntimeCallback): this;
     public exit: (code: typeof App.exitCode[keyof typeof App.exitCode]) => void;
     /**
      * ok, em, this method is used to crash the app, I don't want this happen right?

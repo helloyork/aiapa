@@ -18,8 +18,19 @@ export default async function main(app) {
     let ques1 = await app.UI.select("select an action to continue",options1);
 
     app.Logger.info("getting the product information from Amazon");
+
+    let file;
+
     if(ques1 === options1[0]) {
         await completeConfig(app, "get");
+        app.once(app.App.Events.beforeCommandRun, (_, /**@type {typeof import("./get")} */mod)=>{
+            mod.getConfig().skipSave = true;
+            mod.events.once(mod.EventTypes.AFTER_COMMAND_RUN, (_, path) => {
+                mod.getConfig().skipSave = false;
+                file = path;
+            });
+        });
+
         await app.run(app.App.Commands.get);
     }
 
@@ -29,6 +40,12 @@ export default async function main(app) {
     await completeConfig(app, "analyze");
     app.setUserConfig({
         apiKey: [app.userConfig.apiKey]
+    });
+
+    if (file) app.once(app.App.Events.beforeCommandRun, (_, mod) => {
+        mod.getConfig().file = file;
+        mod.getConfig().skipFileChoose = true;
+        console.log(file)
     });
     await app.run(app.App.Commands.analyze);
 
@@ -40,7 +57,7 @@ export default async function main(app) {
  * @param {string} command
  */
 async function completeConfig(app, command) {
-    app.Logger.info("please enter the required config, leave it empty to use the default value");
+    app.Logger.info("please enter the config, leave it empty to use the default value");
     let required = CommandRequiredConfig[command], config = {};
     for (let key of required) {
         let v = await app.UI.input(`Enter ${key} (${app.App.Options[key].description}):`);

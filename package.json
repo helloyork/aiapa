@@ -1,11 +1,12 @@
 {
   "name": "aiapa",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "AI Analyzes Products on Amazon",
   "main": "./index.js",
   "bin": "./index.js",
   "scripts": {
-    "run": "node index.js"
+    "run": "node index.js",
+    "test": "node ./test/index.js"
   },
   "author": "helloyork@icloud.com",
   "license": "MIT",

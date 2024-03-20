@@ -1,6 +1,6 @@
 
 import { GenerativeAI } from "../api/generative.js";
-import { getFilesToObj, readJSON, saveFile, resolve, formatDate } from "../api/dat.js";
+import { getFilesToObj, readJSON, saveFile, resolve, formatDate, createDirIfNotExists } from "../api/dat.js";
 import { TfIdfAnalyze } from "../api/natural.js";
 import { TaskPool } from "../utils.js";
 
@@ -9,8 +9,11 @@ import path from "path";
 const settings = {
     MAX_PROMPT_LINES: 500,
     MAX_REVIEW_PER_PRODUCT: 8,
-    prompts: ["summarize these product reviews and give me its ", ", return as json format, no markdown, no extra characters, just return json: {\"data\": {[key: reason]: detail}}\nSTART\n", "\nEND"]
+    prompts: ["summarize these product reviews and give me its ", ", return as json format, no markdown, no extra characters, just return json: {\"data\": {[key: reason]: detail}}\nSTART\n", "\nEND"],
+    skipFileChoose: false,
+    file: null,
 };
+
 
 const adapt = {
     get(m) {
@@ -22,6 +25,7 @@ const adapt = {
     }
 };
 
+
 /**@param {import("../types").App} app */
 export default async function main(app) {
     if (!app.config.GEMINI_API_KEY && !app.config.apiKey.length) {
@@ -29,22 +33,7 @@ export default async function main(app) {
         app.exit(app.App.exitCode.OK);
     }
 
-    if (app.isImported) {
-        let missing = ["file"].filter(k => Object.prototype.hasOwnProperty.call(app.config, k));
-        if (missing.length > 0) {
-            throw app.Logger.error(new Error(`missing required config ${missing.join(", ")}`));
-        }
-    }
-
-    let file = app.config.file;
-    if (!file) {
-        let otherPromt = "OTHER (enter file path).";
-        let files = await getFilesToObj(app.App.getFilePath(app.config.binPath));
-        let quetions = [...Object.keys(files).filter(v => v.endsWith(".json")), app.UI.separator(), otherPromt, app.UI.separator()];
-        let res = await app.UI.select("select a file as input", quetions);
-        file = res === otherPromt ? await app.UI.input("enter file path:") : files[res];
-    }
-
+    let file = settings.skipFileChoose ? settings.file : await chooseFile({ app });
     if (!file) {
         throw app.Logger.error(new Error("file is required"));
     }
@@ -73,6 +62,25 @@ export default async function main(app) {
     } finally {
         ai.exit();
     }
+}
+
+
+export function getConfig() {
+    return settings;
+}
+
+/**@param {{app: import("../types").App}} app */
+async function chooseFile({ app }) {
+    let file = app.config.file;
+    if (!file) {
+        let otherPromt = "OTHER (enter file path).";
+        await createDirIfNotExists(app.config.output);
+        let files = await getFilesToObj(app.App.getFilePath(app.config.binPath));
+        let quetions = [...Object.keys(files).filter(v => v.endsWith(".json")), app.UI.separator(), otherPromt, app.UI.separator()];
+        let res = await app.UI.select("select a file as input", quetions);
+        file = res === otherPromt ? await app.UI.input("enter file path:") : files[res];
+    }
+    return file;
 }
 
 function getSortedSentences(sentences, max = settings.MAX_REVIEW_PER_PRODUCT) {

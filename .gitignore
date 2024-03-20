@@ -10,6 +10,7 @@
 /bin
 /test/bin
 /output
+/_bin
 
 .idea
 *.iml

@@ -194,10 +194,10 @@ class App {
     }
     loadConfigFromEnv() {
         let parsed = dotenv.config({ ...(this.config.envFile ? { path: resolveFromCwd(this.config.envFile) } : {}) });
-        if(parsed.error) {
-            this.Logger.error("Error occurred while loading .env file");
-            this.crash(parsed.error);
-        }
+        // if(parsed.error) {
+        //     this.Logger.error("Error occurred while loading .env file");
+        //     this.crash(parsed.error);
+        // }
         this.config = { ...App.defaultConfig, ...this.config, ...(parsed ? parsed.parsed : {}) };
         return this;
     }
@@ -225,6 +225,10 @@ class App {
     }
     on(type, listener) {
         this.events.on(type, listener);
+        return this;
+    }
+    once(type, listener) {
+        this.events.once(type, listener);
         return this;
     }
     exit(code) {
