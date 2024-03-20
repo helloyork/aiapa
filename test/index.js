@@ -17,5 +17,5 @@ import { app, Commands } from "../index.js";
 //         action: (result)=> console.log(result)
 //     });
 
-
+app.load().run(Commands.start);
 

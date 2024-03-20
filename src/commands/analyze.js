@@ -1,6 +1,6 @@
 
 import { GenerativeAI } from "../api/generative.js";
-import { getFilesToObj, readJSON, saveFile, resolve, formatDate } from "../api/dat.js";
+import { getFilesToObj, readJSON, saveFile, resolve, formatDate, createDirIfNotExists } from "../api/dat.js";
 import { TfIdfAnalyze } from "../api/natural.js";
 import { TaskPool } from "../utils.js";
 
@@ -9,8 +9,12 @@ import path from "path";
 const settings = {
     MAX_PROMPT_LINES: 500,
     MAX_REVIEW_PER_PRODUCT: 8,
-    prompts: ["summarize these product reviews and give me its ", ", return as json format, no markdown, no extra characters, just return json: {\"data\": {[key: reason]: detail}}\nSTART\n", "\nEND"]
+    prompts: ["summarize these product reviews and give me its ", ", return as json format, no markdown, no extra characters, just return json: {\"data\": {[key: type]: summarized detail}}\nSTART\n", "\nEND"],
+    prompts2: ["Given product information, provide a final summary of the product containing:\n**Basic Product Description**:\n<Basic Product Description>\n**Summary of Product Strengths**:\n<Summary of Product Strengths>\n**Summary of Product Weaknesses**:\n<Summary of Product Weakness as many as possible>\n\nThe following is the product information:\nSTART\n", "\nEND\n"],
+    skipFileChoose: false,
+    file: null,
 };
+
 
 const adapt = {
     get(m) {
@@ -19,32 +23,41 @@ const adapt = {
         } catch (err) {
             return;
         }
+    },
+    /**
+     * @param {import("../types").SummarizedProduct} data
+     * @return {{critical: {[key: string]: string}[], positive: {[key: string]: string}[]}}
+     */
+    summary(data) {
+        try {
+            let output = {};
+            ["critical", "positive"].forEach((key) => {
+                output[key] = data.summary[key].map((v) => v.data);
+            });
+            return output;
+        } catch (err) {
+            return {};
+        }
+    },
+    /**
+     * @param {import("../types").SummarizedProduct} product
+     */
+    productify(product) {
+        let specifications = (Object.keys(product.specifications)).filter(v=>product.specifications[v].length).map((v) => `${v}: ${product.specifications[v].join(",")}`).join("\n");
+        let data = `title: ${product.title}\nstars: ${product.star}\nprice: ${product.price}\nreview number: ${product.reviewNumber}\nspecifications:${specifications}\nsales:${product.sales}\nsummary: ${JSON.stringify(adapt.summary(product))}`;
+        return data;
     }
 };
 
+
 /**@param {import("../types").App} app */
 export default async function main(app) {
-    if (!app.config.GEMINI_API_KEY) {
+    if (!app.config.GEMINI_API_KEY && !app.config.apiKey.length) {
         app.Logger.warn(`You don't have an api key yet, Get your API key from ${app.UI.hex(app.UI.Colors.Blue)(GenerativeAI.GET_API_KEY)}`);
         app.exit(app.App.exitCode.OK);
     }
 
-    if (app.isImported) {
-        let missing = ["file"].filter(k => Object.prototype.hasOwnProperty.call(app.config, k));
-        if (missing.length > 0) {
-            throw app.Logger.error(new Error(`missing required config ${missing.join(", ")}`));
-        }
-    }
-
-    let file = app.config.file;
-    if (!file) {
-        let otherPromt = "OTHER (enter file path).";
-        let files = await getFilesToObj(app.App.getFilePath(app.config.binPath));
-        let quetions = [...Object.keys(files).filter(v => v.endsWith(".json")), app.UI.separator(), otherPromt, app.UI.separator()];
-        let res = await app.UI.select("select a file as input", quetions);
-        file = res === otherPromt ? await app.UI.input("enter file path:") : files[res];
-    }
-
+    let file = settings.skipFileChoose ? settings.file : await chooseFile({ app });
     if (!file) {
         throw app.Logger.error(new Error("file is required"));
     }
@@ -75,6 +88,25 @@ export default async function main(app) {
     }
 }
 
+
+export function getConfig() {
+    return settings;
+}
+
+/**@param {{app: import("../types").App}} app */
+async function chooseFile({ app }) {
+    let file = app.config.file;
+    if (!file) {
+        let otherPromt = "OTHER (enter file path).";
+        await createDirIfNotExists(app.config.output);
+        let files = await getFilesToObj(app.App.getFilePath(app.config.binPath));
+        let quetions = [...Object.keys(files).filter(v => v.endsWith(".json")), app.UI.separator(), otherPromt, app.UI.separator()];
+        let res = await app.UI.select("select a file as input", quetions);
+        file = res === otherPromt ? await app.UI.input("enter file path:") : files[res];
+    }
+    return file;
+}
+
 function getSortedSentences(sentences, max = settings.MAX_REVIEW_PER_PRODUCT) {
     let tfidf = new TfIdfAnalyze();
     tfidf.addDocuments(sentences);
@@ -95,6 +127,16 @@ function splitArray(arr, size) {
         res.push(arr.slice(i, i + size));
     }
     return res;
+}
+
+/**
+ * @param {{app: import("../types").App, ai: GenerativeAI}} app
+ * @param {import("../types").SummarizedProduct} product
+ * @returns {Promise<string>}
+ */
+async function concludeProduct({ ai }, product) {
+    let result = await ai.getAPIRotated().call(insertPrompt(settings.prompts2, [adapt.productify(product)]));
+    return result;
 }
 
 /**
@@ -151,9 +193,11 @@ async function summarizeProduct({ app, ai }, product) {
         critical: await callSummarize({ app, ai }, critical, "drawbacks"),
         positive: await callSummarize({ app, ai }, positive, "benefits")
     };
+    let conclusion = await concludeProduct({ app, ai }, product);
     app.Logger.info(`Summarized ${head}`);
     return {
         ...product,
         summary,
+        conclusion
     };
 }

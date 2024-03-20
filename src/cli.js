@@ -63,6 +63,7 @@ class App {
     static exit(code) {
         process.exit(code);
     }
+    static TitleArt = "\n     ____  ____   ____  ____   ____ \n    /    ||    | /    ||    \\ /    |\n   |  o  | |  | |  o  ||  o  )  o  |\n   |     | |  | |     ||   _/|     |\n   |  _  | |  | |  _  ||  |  |  _  |\n   |  |  | |  | |  |  ||  |  |  |  |\n   |__|__||____||__|__||__|  |__|__|\n\n";
 
     /* Constructor */
     constructor({ program, inquirer, chalk }) {
@@ -98,6 +99,7 @@ class App {
         this.name = name;
         this.description = description;
         this.version = version;
+        this.program.addHelpText("before", App.TitleArt);
         return this;
     }
     getCommandTree(parent) {
@@ -129,7 +131,7 @@ class App {
         }
     }
     async runCommand(command, config) {
-        if (!this.isImported) this.loadConfigFromArgs(command.opts());
+        if (!this.isImported) this.loadConfigFromArgs(command.opts()).loadConfigFromObject(this.userConfig);
         try {
             const module = await App.loadScript(config.scriptPath || command.name());
             this.mainModule = module;
@@ -174,7 +176,7 @@ class App {
         return this;
     }
     setUserConfig(obj) {
-        this.userConfig = obj;
+        Object.assign(this.userConfig, obj);
         this.loadConfigFromObject(obj);
         return this;
     }
@@ -192,10 +194,10 @@ class App {
     }
     loadConfigFromEnv() {
         let parsed = dotenv.config({ ...(this.config.envFile ? { path: resolveFromCwd(this.config.envFile) } : {}) });
-        if(parsed.error) {
-            this.Logger.error("Error occurred while loading .env file");
-            this.crash(parsed.error);
-        }
+        // if(parsed.error) {
+        //     this.Logger.error("Error occurred while loading .env file");
+        //     this.crash(parsed.error);
+        // }
         this.config = { ...App.defaultConfig, ...this.config, ...(parsed ? parsed.parsed : {}) };
         return this;
     }
@@ -223,6 +225,10 @@ class App {
     }
     on(type, listener) {
         this.events.on(type, listener);
+        return this;
+    }
+    once(type, listener) {
+        this.events.once(type, listener);
         return this;
     }
     exit(code) {

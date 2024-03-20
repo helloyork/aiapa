@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 
 /**
- * @todo how about gemini analysis these products?
+ * @todo better way to get cmd module
+ * 
+ * @todo maybe rewrite these command as class?
  */
 
 import { app } from "./src/cli.js";
@@ -12,7 +14,7 @@ export const Commands = app.App.Commands;
 app.registerProgram({
     name: "AIAPA",
     description: "AI Analyzes Products on Amazon",
-    version: "0.1.7",
+    version: "0.1.10",
 })
     .registerCommands(Commands)
     .startIf(isImported(import.meta.url));

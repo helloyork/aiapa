@@ -2,7 +2,7 @@
 
 
 import { Browser } from "../api/puppeteer.js";
-import { TaskPool, randomInt, createProgressBar, createMultiProgressBar, sleep, isValidUrl } from "../utils.js";
+import { TaskPool, randomInt, createProgressBar, createMultiProgressBar, sleep, isValidUrl, EventEmitter } from "../utils.js";
 import { loadFile, saveFile, joinPath, saveCSV, splitByNewLine, formatDate } from "../api/dat.js";
 import { Server } from "../api/server.js";
 
@@ -17,7 +17,15 @@ const AMAZON_SEARCH_URL = "https://www.amazon.com/s";
 const config = {
     blockedResourceTypes: ["image", "font", "stylesheet"],
     proxies: [],
+    skipSave: false
 };
+
+export const EventTypes = {
+    BEFORE_COMMAND_RUN: "beforeCommandRun",
+    AFTER_COMMAND_RUN: "afterCommandRun",
+};
+export const events = new EventEmitter();
+
 const Selector = {
     title: "#productTitle",
     price: "#corePrice_feature_div span.a-price > span",
@@ -32,10 +40,10 @@ const Selector = {
     reviewStarRating: "i[data-hook=\"review-star-rating\"]",
     reviewDate: "span[data-hook=\"review-date\"]",
     reviewBody: "span[data-hook=\"review-body\"]",
-    specificantionsSize: "#variation_size_name ul li",
-    specificantionsStyle: "#variation_style_name ul li",
-    specificantionsColor: "#variation_color_name ul li",
-    specificantionsPattern: "#variation_pattern_name ul li",
+    specificationsSize: "#variation_size_name ul li",
+    specificationsStyle: "#variation_style_name ul li",
+    specificationsColor: "#variation_color_name ul li",
+    specificationsPattern: "#variation_pattern_name ul li",
     nextPageButton: "#cm_cr-pagination_bar li.a-last > a",
 };
 /**@type {{[key: string]: ElementSelector}}*/
@@ -62,10 +70,10 @@ const Details = {
             return el.textContent.trim();
         }
     },
-    specificantions: {
+    specifications: {
         querySelectors: {
             size: {
-                querySelector: [Selector.specificantionsSize],
+                querySelector: [Selector.specificationsSize],
                 evaluate: (els) => {
                     if (!els || (Array.isArray(els) && !els.length)) return [];
                     return Array.from(els).map((el) => el.textContent.replace(/\n/g, "")
@@ -73,7 +81,7 @@ const Details = {
                 }
             },
             style: {
-                querySelector: [Selector.specificantionsStyle],
+                querySelector: [Selector.specificationsStyle],
                 evaluate: (els) => {
                     if (!els || (Array.isArray(els) && !els.length)) return [];
                     return Array.from(els).map((el) => {
@@ -88,7 +96,7 @@ const Details = {
                 }
             },
             pattern: {
-                querySelector: [Selector.specificantionsPattern],
+                querySelector: [Selector.specificationsPattern],
                 evaluate: (els) => {
                     if (!els || (Array.isArray(els) && !els.length)) return [];
                     return Array.from(els).map((el) => el.textContent.replace(" ".repeat(32), "").trim());
@@ -186,87 +194,52 @@ export function registerProxy(proxy) {
     return [...config.proxies];
 }
 
+export function registerBlockedResourceTypes(types) {
+    config.blockedResourceTypes.push(...types);
+    return [...config.blockedResourceTypes];
+}
+
+export function getConfig() {
+    return config;
+}
 
 
 
 /**@param {import("../cli.js").App} app */
 export default async function main(app) {
-    if (app.config.debug) {
-        app.Logger.debug("Debug mode enabled, Image will be loaded");
-    }
+    events.emit(EventTypes.BEFORE_COMMAND_RUN, app);
+    app.config.debug && app.Logger.debug("Debug mode enabled, Image will be loaded");
 
     let server = new Server(app);
-    let browser = new Browser(app, { args: [...(app.config.proxy ? [`--proxy-server=${"http://localhost:" + server.port}`] : [])] })
-        .setAllowRecycle(true).setMaxFreePages(app.config.maxConcurrency < 10 ? 10 : app.config.maxConcurrency)
-        , startTime = Date.now(), result;
-    browser.usePlugin(Browser.Plugins.StealthPlugin());
+    let browser = setupBrowser(app, server);
+    let startTime = Date.now(), result;
 
-    app.Logger.info("Launching browser");
+    app.Logger.verbose("Launching browser");
     app.Logger.verbose("Import state: " + app.isImported);
+
     try {
         const UAs = splitByNewLine(await loadFile(app.App.getFilePath(app.App.staticConfig.USER_AGENTS_PATH)));
-        // const currentUa = UAs[randomInt(0, UAs.length - 1)];
         app.Logger.verbose("User agents loaded");
 
-        if (app.config.proxy) {
-            if (config.proxies.length > 0) server.addProxis(config.proxies);
-            server.init(8080);
-        }
+        setupServer(app, server, config);
 
         await browser.launch({ headless: !app.config.headful });
-        app.Logger.log("Browser launched");
+        app.Logger.info("Browser launched");
 
-        browser.onBeforePage(async (page) => {
-            await page.setUserAgent(UAs[randomInt(0, UAs.length - 1)]);
-        }).onDisconnect(() => {
-            if (browser.closed) return;
-            throw app.Logger.error(new Error("Browser disconnected"));
-        });
+        setupBrowserEvents(app, browser, UAs);
 
         result = await browser.page(async (page) => {
             return await search({ browser, page, search: app.config.query, app, });
         });
         await browser.close();
 
+        if(!result) throw new Error("No result found");
+
         let time = formatDate(new Date());
-        if (!app.isImported) {
-            /**
-             * @type {{[key: string]: function(Product[]): Promise<void>}}
-             */
-            let options = {
-                "save as .json": async function (res) {
-                    let title = app.config.query;
-                    if (isValidUrl(app.config.query) && new URL(app.config.query).hostname === new URL(AMAZON_SEARCH_URL).hostname) {
-                        title = new URL(app.config.query).pathname.split("/").filter(Boolean)[0];
-                    }
-                    let path = await saveFile(joinPath(app.config.output, `${title}-result-${time}.json`), JSON.stringify(res));
-                    app.Logger.log("Saved to file: " + path);
-                },
-                "save as .csv": async function (res) {
-                    let title = app.config.query;
-                    if (isValidUrl(app.config.query) && new URL(app.config.query).hostname === new URL(AMAZON_SEARCH_URL).hostname) {
-                        title = new URL(app.config.query).pathname.split("/").filter(Boolean)[0];
-                    }
-                    let output = [];
-                    res.forEach(r => {
-                        let o = {};
-                        Object.entries(r).forEach(([key, value]) => {
-                            if (typeof value === "string") o[key] = value;
-                            else o[key] = JSON.stringify(value);
-                        });
-                        output.push(o);
-                    });
-                    let path = await saveCSV(app.config.output, `${title}-result-${time}`, output);
-                    app.Logger.log("Saved to file: " + path);
-                },
-                "log to console": (res) => app.Logger.log(JSON.stringify(res)),
-                "none": () => { }
-            };
-            let res = await app.UI.select("Save files to: ", Object.keys(options));
-            if (res) await options[res](result);
-        } else {
-            app.config.file = joinPath(process.cwd(), app.config.output, `result-${time}.json`);
-        }
+
+        let path = await ((!app.isImported && !config.skipSave)? saveResults(app, result, time): saveFile(getPath(app, time, ".json"), JSON.stringify(result)));
+        app.Logger.log(`Saved to: ${app.UI.hex(app.UI.Colors.Blue)(path)}`);
+        events.emit(EventTypes.AFTER_COMMAND_RUN, app, path, result);
 
     } catch (error) {
         app.Logger.error("An error occurred");
@@ -276,10 +249,73 @@ export default async function main(app) {
         await server.close();
     }
 
-
     app.Logger.log(`Time elapsed: ${(Date.now() - startTime) / 1000}s`);
 
     return result;
+}
+
+function setupBrowser(app, server) {
+    let browser = new Browser(app, { args: [...(app.config.proxy ? [`--proxy-server=${"http://localhost:" + server.port}`] : [])] })
+        .setAllowRecycle(true).setMaxFreePages(app.config.maxConcurrency < 10 ? 10 : app.config.maxConcurrency);
+    browser.usePlugin(Browser.Plugins.StealthPlugin());
+    return browser;
+}
+
+function setupServer(app, server, config) {
+    if (app.config.proxy) {
+        if (config.proxies.length > 0) server.addProxis(config.proxies);
+        server.init(8080);
+    }
+}
+
+function setupBrowserEvents(app, browser, UAs) {
+    browser.onBeforePage(async (page) => {
+        await page.setUserAgent(UAs[randomInt(0, UAs.length - 1)]);
+    }).onDisconnect(() => {
+        if (browser.closed) return;
+        throw app.Logger.error(new Error("Browser disconnected"));
+    });
+}
+
+async function saveResults(app, result, time) {
+    let options = getSaveOptions(app, time);
+    let res = await app.UI.select("Save files to: ", Object.keys(options));
+    if (res) return await options[res](result);
+}
+
+function getSaveOptions(app, time) {
+    return {
+        "save as .json": async function (res) {
+            return await saveFile(getPath(app, time, ".json"), JSON.stringify(res));
+        },
+        "save as .csv": async function (res) {
+            return await saveCSV(app.config.output, getPath(app, time, ".csv"), formatOutput(res));
+        },
+        "log to console": (res) => app.Logger.log(JSON.stringify(res)),
+        "none": () => { }
+    };
+}
+
+function getPath(app, time, ext) {
+    let title = getTitle(app);
+    return joinPath(app.config.output, `${title}-result-${time}${ext}`);
+}
+
+function getTitle(app) {
+    if (isValidUrl(app.config.query) && new URL(app.config.query).hostname === new URL(AMAZON_SEARCH_URL).hostname) {
+        return new URL(app.config.query).pathname.split("/").filter(Boolean)[0];
+    }
+    return app.config.query;
+}
+
+function formatOutput(res) {
+    return res.map(r => {
+        let o = {};
+        Object.entries(r).forEach(([key, value]) => {
+            o[key] = typeof value === "string" ? value : JSON.stringify(value);
+        });
+        return o;
+    });
 }
 
 async function getProductLinks({ app, browser, page, search }) {
@@ -322,7 +358,7 @@ async function getProductLinks({ app, browser, page, search }) {
 async function search({ app, browser, page, search }) {
     if (!app.config.debug) await browser.blockResources(page, config.blockedResourceTypes);
     if (!search && !search.length) {
-        let res = await app.UI.input("Pleae type in query to search for (or a link):");
+        let res = await app.UI.input("Pleae type in query to search for (or a product link):");
         if (!res || !res.length) throw new Error("No query provided, please provide by --query <string>");
         app.config.query = search = res;
     }
@@ -434,7 +470,7 @@ async function searchReviews({ app, browser }, bar, datas) {
  * @param {{bar: import("cli-progress").MultiBar, data: ProductDetails, sort: "positive"|"critical"}} arg1
  * @returns {Promise<Review[]>}
  */
-async function getReviews({ browser, app }, { bar, data, sort = "positive" }) {
+async function getReviews({ browser, app }, { data, sort = "positive" }) {
     if (app.config.maxReviews > 10) {
         app.Logger.warn("Can't get more than 10 pages of reviews, setting to 10");
         app.config.maxReviews = 10;
@@ -444,7 +480,7 @@ async function getReviews({ browser, app }, { bar, data, sort = "positive" }) {
     }
     let url = new URL(data.productsReviewLink);
     url.searchParams.set("filterByStar", sort);
-    let childBar = bar.create(app.config.maxReviews, 0), pageUrl = url.href, reviews = [],
+    let pageUrl = url.href, reviews = [],
         maxTitleLength = 16, endStr = "...", txt = data.title.length > maxTitleLength ? data.title.slice(0, maxTitleLength - endStr.length) + endStr : data.title;
     await browser.page(async (page) => {
         let tried = 0;
@@ -485,9 +521,6 @@ async function getReviews({ browser, app }, { bar, data, sort = "positive" }) {
                     return output;
                 }));
                 reviews.push(...reviewDatas);
-                childBar.increment(1, {
-                    title: txt,
-                });
                 tried++;
 
                 let nextPageLink = await browser.try$Eval(page, { selector: Selector.nextPageButton, evaluate: (el) => el.href });
@@ -498,9 +531,7 @@ async function getReviews({ browser, app }, { bar, data, sort = "positive" }) {
         } catch (err) {
             app.Logger.error(err);
         } finally {
-            childBar.update(app.config.maxReviews, {
-                title: txt,
-            });
+            app.Logger.info(`Got ${reviews.length} reviews for ${txt}(${sort})`);
             await browser.free(page);
         }
     });

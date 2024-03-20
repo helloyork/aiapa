@@ -80,12 +80,15 @@ export class Logger {
             if (typeof message !== "string") message = JSON.stringify(message);
         } catch { /* empty */ }
         console.log(this.generate({ level: this.Levels.LOG, message }));
+        return this;
     }
     warn(message) {
         console.warn(this.generate({ level: this.Levels.WARN, message }));
+        return this;
     }
     info(message) {
         console.log(this.generate({ level: this.Levels.INFO, message }));
+        return this;
     }
     error(message) {
         if (message instanceof Error) message = message.message + "\n" + message.stack;
@@ -97,9 +100,15 @@ export class Logger {
             if (typeof message !== "string") message = JSON.stringify(message);
         } catch { /* empty */ }
         if (this.app.config.debug) console.log(this.generate({ level: this.Levels.DEBUG, message }));
+        return this;
     }
     verbose(message) {
         if (this.app.config.verbose) console.log(this.generate({ level: this.Levels.VERBOSE, message }));
+        return this;
+    }
+    tagless(message) {
+        console.log(message);
+        return this;
     }
 }
 
@@ -188,8 +197,8 @@ export class TaskPool {
     }
     async executeNextTask() {
         if (!this.running) return;
-        if (this.taskQueue.length === 0) return;
         await new Promise(resolve => setTimeout(resolve, this.delayBetweenTasks));
+        if (this.taskQueue.length === 0) return;
         const task = this.taskQueue.shift();
         return task().finally(() => {
             if (this.running && this.taskQueue.length > 0) {

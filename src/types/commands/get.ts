@@ -7,7 +7,7 @@ export interface Review {
     content: string;
 }
 
-export interface Specificantions {
+export interface Specifications {
     size: string[];
     style: string[];
     color: string[];
@@ -20,7 +20,7 @@ export interface ProductDetails {
     price: string;
     sales: string;
     star: string;
-    specificantions: Specificantions;
+    specifications: Specifications;
     reviewNumber: number;
     productsReviewLink: string;
 }
@@ -43,6 +43,10 @@ export interface SummarizedProduct extends Product {
         positive: Summary[] | null;
         critical: Summary[] | null[];
     };
+}
+
+export interface ConcludedProduct extends SummarizedProduct {
+    conclusion: string;
 }
 
 export declare type ElementSelector = {
