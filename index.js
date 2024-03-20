@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 /**
+ * @fixme null response from ai
  * @todo better way to get cmd module
  * 
  * @todo maybe rewrite these command as class?

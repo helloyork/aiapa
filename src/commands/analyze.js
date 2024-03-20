@@ -3,16 +3,18 @@ import { GenerativeAI } from "../api/generative.js";
 import { getFilesToObj, readJSON, saveFile, resolve, formatDate, createDirIfNotExists } from "../api/dat.js";
 import { TfIdfAnalyze } from "../api/natural.js";
 import { TaskPool } from "../utils.js";
+import { renderTemplate } from "../api/page.js";
 
 import path from "path";
 
 const settings = {
-    MAX_PROMPT_LINES: 500,
+    MAX_PROMPT_LINES: 400,
     MAX_REVIEW_PER_PRODUCT: 8,
-    prompts: ["summarize these product reviews and give me its ", ", return as json format, no markdown, no extra characters, just return json: {\"data\": {[key: type]: summarized detail}}\nSTART\n", "\nEND"],
+    prompts: ["summarize these product reviews and give me its ", ", return as json format, no markdown, no extra characters, 6~7 reasons, just return json: {\"data\": {[key: reason]: detail}}\nSTART\n", "\nEND"],
     prompts2: ["Given product information, provide a final summary of the product containing:\n**Basic Product Description**:\n<Basic Product Description>\n**Summary of Product Strengths**:\n<Summary of Product Strengths>\n**Summary of Product Weaknesses**:\n<Summary of Product Weakness as many as possible>\n\nThe following is the product information:\nSTART\n", "\nEND\n"],
     skipFileChoose: false,
     file: null,
+    templateName: "result-template",
 };
 
 
@@ -43,7 +45,7 @@ const adapt = {
      * @param {import("../types").SummarizedProduct} product
      */
     productify(product) {
-        let specifications = (Object.keys(product.specifications)).filter(v=>product.specifications[v].length).map((v) => `${v}: ${product.specifications[v].join(",")}`).join("\n");
+        let specifications = (Object.keys(product.specifications)).filter(v => product.specifications[v].length).map((v) => `${v}: ${product.specifications[v].join(",")}`).join("\n");
         let data = `title: ${product.title}\nstars: ${product.star}\nprice: ${product.price}\nreview number: ${product.reviewNumber}\nspecifications:${specifications}\nsales:${product.sales}\nsummary: ${JSON.stringify(adapt.summary(product))}`;
         return data;
     }
@@ -78,6 +80,8 @@ export default async function main(app) {
             `summarized-${formatDate(new Date())}-${path.basename(app.config.file)}.json`
         ), JSON.stringify(results)))}`);
 
+        await saveRenderable({ app }, results);
+
         app.Logger.info(`Time taken: ${Date.now() - time}ms`);
 
         return results;
@@ -105,6 +109,49 @@ async function chooseFile({ app }) {
         file = res === otherPromt ? await app.UI.input("enter file path:") : files[res];
     }
     return file;
+}
+
+
+/**
+ * @param {import("../types").ConcludedProduct[]} datas
+ * @returns {import("../types").RenderableData}
+ */
+function getRenderable(datas) {
+    return {
+        products: datas.map((v) => {
+            let hrefU = new URL(v.href), stars = Math.ceil(parseInt(v.star));
+            return {
+                name: v.title,
+                href: hrefU.origin + hrefU.pathname,
+                stars: stars? (`(${v.star}) `+"⭐".repeat(stars) + "☆".repeat(5 - stars)): "N/A",
+                reviewNumber: v.reviewNumber,
+                sales: v.sales,
+                description: v.conclusion,
+                attributes: [{
+                    name: "review link",
+                    value: v.productsReviewLink
+                }, ...(Object.keys(v.specifications)).map((key) => {
+                    return {
+                        name: key,
+                        value: v.specifications[key].join(", ")
+                    };
+                })],
+            };
+        })
+    };
+}
+
+/**
+ * @param {{app: import("../types").App}} param0 
+ * @param {import("../types").ConcludedProduct[]} datas
+ */
+async function saveRenderable({ app }, datas) {
+    let out = getRenderable(datas);
+    let result = renderTemplate({ app }, settings.templateName, out);
+    let file = resolve(app.config.output, `result-${formatDate(new Date())}-${path.basename(app.config.file)}.html`);
+    await saveFile(file, result);
+    app.Logger.log(`saved results to ${app.UI.hex(app.UI.Colors.Blue)(file)}`);
+    return;
 }
 
 function getSortedSentences(sentences, max = settings.MAX_REVIEW_PER_PRODUCT) {
@@ -142,7 +189,7 @@ async function concludeProduct({ ai }, product) {
 /**
  * @param {{app: import("../types").App, ai: GenerativeAI}} app
  * @param {import("../types").SummarizedProduct[]} data
- * @returns {Promise<import("../types").SummarizedProduct[]>}
+ * @returns {Promise<import("../types").ConcludedProduct[]>}
  */
 async function summarize({ app, ai }, data) {
     const reviews = [];
@@ -165,14 +212,25 @@ async function callSummarize({ app, ai }, reviews, side) {
     let sentences = getSortedSentences(reviews);
     let prompts = splitArray(sentences, settings.MAX_PROMPT_LINES).map((v) => insertPrompt(settings.prompts, [side, v.join("\n")]));
     let results = [];
-    let taskPool = new TaskPool(app.config.maxConcurrency, app.App.staticConfig.DELAY_BETWEEN_TASK).addTasks(prompts.map((v) => async () => {
-        try {
-            let result = await ai.getAPIRotated().call(v);
-            results.push(adapt.get(result));
-        } catch (err) {
-            app.Logger.error(err);
-        }
-    }));
+    let taskPool = new TaskPool(app.config.maxConcurrency, app.App.staticConfig.DELAY_BETWEEN_TASK).addTasks(
+        prompts.map((v) => async function run(tried = 0) {
+            try {
+                let result = await ai.getAPIRotated().call(v);
+                let parsed = adapt.get(result);
+                if (parsed) {
+                    if (tried == 0) results.push(parsed);
+                    else return parsed;
+                } else {
+                    app.Logger.warn("failed to parse result: " + result)
+                        .warn("retry: " + (++tried));
+                    if (tried >= app.App.staticConfig.MAX_TRY) throw new Error("max try " + app.App.staticConfig.MAX_TRY + " reached");
+                    if (tried == 0) results.push(await run(tried));
+                    else return await run(tried);
+                }
+            } catch (err) {
+                app.Logger.error(err);
+            }
+        }));
     await taskPool.start();
     return results;
 }
@@ -184,20 +242,17 @@ async function callSummarize({ app, ai }, reviews, side) {
  */
 async function summarizeProduct({ app, ai }, product) {
     let critical = product.reviews?.critical?.map(v => v.content), positive = product.reviews?.positive?.map(v => v.content), maxLength = 40;
-    if (!critical || !positive) {
-        return null;
-    }
     let head = `${product.title.substring(0, maxLength) + (product.title.length > maxLength ? "..." : "")}`;
     app.Logger.info(`Summarizing ${head}`);
     let summary = {
         critical: await callSummarize({ app, ai }, critical, "drawbacks"),
         positive: await callSummarize({ app, ai }, positive, "benefits")
     };
+    product.summary = summary;
     let conclusion = await concludeProduct({ app, ai }, product);
     app.Logger.info(`Summarized ${head}`);
     return {
         ...product,
-        summary,
         conclusion
     };
 }
