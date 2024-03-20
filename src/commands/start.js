@@ -1,7 +1,7 @@
 
 const CommandRequiredConfig = {
     "get": ["maxTask", "maxReviews"],
-    "analyze": ["apiKey"]
+    "analyze": []
 };
 
 /**@param {import("../types").App} app */
@@ -17,11 +17,11 @@ export default async function main(app) {
     let options1 = ["start", "I already have the product information"];
     let ques1 = await app.UI.select("select an action to continue",options1);
 
-    app.Logger.info("getting the product information from Amazon");
-
     let file;
 
     if(ques1 === options1[0]) {
+        app.Logger.info("getting the product information from Amazon");
+        
         await completeConfig(app, "get");
         app.once(app.App.Events.beforeCommandRun, (_, /**@type {typeof import("./get")} */mod)=>{
             mod.getConfig().skipSave = true;
@@ -36,6 +36,14 @@ export default async function main(app) {
 
     app.Logger.tagless("\n")
         .info("analyzing the product information");
+
+    if(!app.config.GEMINI_API_KEY && !app.config.apiKey.length) {
+        CommandRequiredConfig.analyze.push("apiKey");
+    } else {
+        app.setUserConfig({
+            apiKey: [app.config.GEMINI_API_KEY, ...app.config.apiKey]
+        });
+    }
     
     await completeConfig(app, "analyze");
     app.setUserConfig({
@@ -45,7 +53,6 @@ export default async function main(app) {
     if (file) app.once(app.App.Events.beforeCommandRun, (_, mod) => {
         mod.getConfig().file = file;
         mod.getConfig().skipFileChoose = true;
-        console.log(file)
     });
     await app.run(app.App.Commands.analyze);
 
@@ -57,8 +64,9 @@ export default async function main(app) {
  * @param {string} command
  */
 async function completeConfig(app, command) {
-    app.Logger.info("please enter the config, leave it empty to use the default value");
     let required = CommandRequiredConfig[command], config = {};
+    if(!required || !required.length) return;
+    app.Logger.info("please enter the config, leave it empty to use the default value");
     for (let key of required) {
         let v = await app.UI.input(`Enter ${key} (${app.App.Options[key].description}):`);
         if (v) config[key] = v;

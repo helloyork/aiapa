@@ -50,7 +50,7 @@ export const Options = {
     },
     maxReviews: {
         flags: "-r, --max-reviews <number>",
-        description: "The maximum number of pages to get reviews from, can't more than 10 pages (1 page = 10 critical reviews + 10 positive reviews)",
+        description: "how many pages of review, can't more than 10 pages (1 page = 20 reviews)",
         defaultValue: 10,
     },
     lowRam: {

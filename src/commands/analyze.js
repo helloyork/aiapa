@@ -9,7 +9,8 @@ import path from "path";
 const settings = {
     MAX_PROMPT_LINES: 500,
     MAX_REVIEW_PER_PRODUCT: 8,
-    prompts: ["summarize these product reviews and give me its ", ", return as json format, no markdown, no extra characters, just return json: {\"data\": {[key: reason]: detail}}\nSTART\n", "\nEND"],
+    prompts: ["summarize these product reviews and give me its ", ", return as json format, no markdown, no extra characters, just return json: {\"data\": {[key: type]: summarized detail}}\nSTART\n", "\nEND"],
+    prompts2: ["Given product information, provide a final summary of the product containing:\n**Basic Product Description**:\n<Basic Product Description>\n**Summary of Product Strengths**:\n<Summary of Product Strengths>\n**Summary of Product Weaknesses**:\n<Summary of Product Weakness as many as possible>\n\nThe following is the product information:\nSTART\n", "\nEND\n"],
     skipFileChoose: false,
     file: null,
 };
@@ -22,6 +23,29 @@ const adapt = {
         } catch (err) {
             return;
         }
+    },
+    /**
+     * @param {import("../types").SummarizedProduct} data
+     * @return {{critical: {[key: string]: string}[], positive: {[key: string]: string}[]}}
+     */
+    summary(data) {
+        try {
+            let output = {};
+            ["critical", "positive"].forEach((key) => {
+                output[key] = data.summary[key].map((v) => v.data);
+            });
+            return output;
+        } catch (err) {
+            return {};
+        }
+    },
+    /**
+     * @param {import("../types").SummarizedProduct} product
+     */
+    productify(product) {
+        let specifications = (Object.keys(product.specifications)).filter(v=>product.specifications[v].length).map((v) => `${v}: ${product.specifications[v].join(",")}`).join("\n");
+        let data = `title: ${product.title}\nstars: ${product.star}\nprice: ${product.price}\nreview number: ${product.reviewNumber}\nspecifications:${specifications}\nsales:${product.sales}\nsummary: ${JSON.stringify(adapt.summary(product))}`;
+        return data;
     }
 };
 
@@ -107,6 +131,16 @@ function splitArray(arr, size) {
 
 /**
  * @param {{app: import("../types").App, ai: GenerativeAI}} app
+ * @param {import("../types").SummarizedProduct} product
+ * @returns {Promise<string>}
+ */
+async function concludeProduct({ ai }, product) {
+    let result = await ai.getAPIRotated().call(insertPrompt(settings.prompts2, [adapt.productify(product)]));
+    return result;
+}
+
+/**
+ * @param {{app: import("../types").App, ai: GenerativeAI}} app
  * @param {import("../types").SummarizedProduct[]} data
  * @returns {Promise<import("../types").SummarizedProduct[]>}
  */
@@ -159,9 +193,11 @@ async function summarizeProduct({ app, ai }, product) {
         critical: await callSummarize({ app, ai }, critical, "drawbacks"),
         positive: await callSummarize({ app, ai }, positive, "benefits")
     };
+    let conclusion = await concludeProduct({ app, ai }, product);
     app.Logger.info(`Summarized ${head}`);
     return {
         ...product,
         summary,
+        conclusion
     };
 }

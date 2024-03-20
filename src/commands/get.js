@@ -40,10 +40,10 @@ const Selector = {
     reviewStarRating: "i[data-hook=\"review-star-rating\"]",
     reviewDate: "span[data-hook=\"review-date\"]",
     reviewBody: "span[data-hook=\"review-body\"]",
-    specificantionsSize: "#variation_size_name ul li",
-    specificantionsStyle: "#variation_style_name ul li",
-    specificantionsColor: "#variation_color_name ul li",
-    specificantionsPattern: "#variation_pattern_name ul li",
+    specificationsSize: "#variation_size_name ul li",
+    specificationsStyle: "#variation_style_name ul li",
+    specificationsColor: "#variation_color_name ul li",
+    specificationsPattern: "#variation_pattern_name ul li",
     nextPageButton: "#cm_cr-pagination_bar li.a-last > a",
 };
 /**@type {{[key: string]: ElementSelector}}*/
@@ -70,10 +70,10 @@ const Details = {
             return el.textContent.trim();
         }
     },
-    specificantions: {
+    specifications: {
         querySelectors: {
             size: {
-                querySelector: [Selector.specificantionsSize],
+                querySelector: [Selector.specificationsSize],
                 evaluate: (els) => {
                     if (!els || (Array.isArray(els) && !els.length)) return [];
                     return Array.from(els).map((el) => el.textContent.replace(/\n/g, "")
@@ -81,7 +81,7 @@ const Details = {
                 }
             },
             style: {
-                querySelector: [Selector.specificantionsStyle],
+                querySelector: [Selector.specificationsStyle],
                 evaluate: (els) => {
                     if (!els || (Array.isArray(els) && !els.length)) return [];
                     return Array.from(els).map((el) => {
@@ -96,7 +96,7 @@ const Details = {
                 }
             },
             pattern: {
-                querySelector: [Selector.specificantionsPattern],
+                querySelector: [Selector.specificationsPattern],
                 evaluate: (els) => {
                     if (!els || (Array.isArray(els) && !els.length)) return [];
                     return Array.from(els).map((el) => el.textContent.replace(" ".repeat(32), "").trim());
