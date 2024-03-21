@@ -93,6 +93,18 @@ app.setUserConfig({
 
 ## Update
 
+### 2024/3/20
+
+This update added the following features:
+
+1. start command  
+2. auto generate html as result
+
+Changed the following features:
+
+1. fix many problems  
+2. support linux and macos
+
 ### 2024/3/15
 
 This update added the following features:

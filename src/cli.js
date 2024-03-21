@@ -8,7 +8,7 @@ import dotenv from "dotenv";
 
 import { Logger, EventEmitter } from "./utils.js";
 import ui from "./ui.js";
-import { resolveFromCwd } from "./api/dat.js";
+import { getHomeDir, isMacosOrLinux, joinPath, resolveFromCwd } from "./api/dat.js";
 import { Commands, Options } from "./command.js";
 
 
@@ -45,7 +45,7 @@ class App {
         verbose: false,
         headful: false,
         query: "",
-        binPath: "../bin",
+        binPath: isMacosOrLinux()? joinPath(getHomeDir(), "./.bin/aiapa/") :"../bin",
         output: "",
         model: "gemini-pro",
         maxTask: 10,

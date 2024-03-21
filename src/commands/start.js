@@ -1,3 +1,4 @@
+import { saveFile } from "../api/dat.js";
 
 const CommandRequiredConfig = {
     "get": ["maxTask", "maxReviews"],
@@ -45,10 +46,13 @@ export default async function main(app) {
         });
     }
     
-    await completeConfig(app, "analyze");
+    let set = await completeConfig(app, "analyze");
     app.setUserConfig({
         apiKey: [app.userConfig.apiKey]
     });
+    if (set && await app.UI.confirm("Do you want to save the api key?")) {
+        await saveFile(app.App.getFilePath("../.env"), `GEMINI_API_KEY="${app.userConfig.apiKey}"`);
+    }
 
     if (file) app.once(app.App.Events.beforeCommandRun, (_, mod) => {
         mod.getConfig().file = file;
@@ -65,11 +69,12 @@ export default async function main(app) {
  */
 async function completeConfig(app, command) {
     let required = CommandRequiredConfig[command], config = {};
-    if(!required || !required.length) return;
+    if(!required || !required.length) return false;
     app.Logger.info("please enter the config, leave it empty to use the default value");
     for (let key of required) {
         let v = await app.UI.input(`Enter ${key} (${app.App.Options[key].description}):`);
         if (v) config[key] = v;
     }
     app.setUserConfig(config);
+    return true;
 }

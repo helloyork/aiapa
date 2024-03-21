@@ -11,6 +11,14 @@ export { resolve } from "path";
 
 let UAs = [];
 
+export function isMacosOrLinux() {
+    return process.platform === "darwin" || process.platform === "linux";
+}
+
+export function getHomeDir() {
+    return process.env.HOME || process.env.USERPROFILE;
+}
+
 /**
  * @typedef {string} relativePath path relative to the cli.js file
  * @typedef {string} absolutePath path resolved with process.cwd()
