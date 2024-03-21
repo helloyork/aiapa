@@ -45,8 +45,8 @@ class App {
         verbose: false,
         headful: false,
         query: "",
-        output: "./bin",
         binPath: "../bin",
+        output: "",
         model: "gemini-pro",
         maxTask: 10,
         maxReviews: 10,
@@ -56,6 +56,9 @@ class App {
         apiKey: [],
         file: null
     };
+    static __init() {
+        this.defaultConfig.output = this.getFilePath(this.defaultConfig.binPath);
+    }
     static exitCode = {
         OK: 0,
         ERROR: 1,
@@ -239,6 +242,8 @@ class App {
         this.exit(App.exitCode.ERROR);
     }
 }
+App.__init();
+
 /**@type {import("./types/index.js").App} */
 const app = new App({ program, inquirer, chalk });
 

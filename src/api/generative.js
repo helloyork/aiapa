@@ -46,7 +46,8 @@ class Model {
         this.api = new GoogleGenerativeAI(modelConfig.apikey).getGenerativeModel({
             model: this.getModelConfig().model,
             safetySettings: this.getSafetySettings(),
-            generationConfig: this.getGenerationConfig()
+            generationConfig: this.getGenerationConfig(),
+            
         }, {
             timeout: app.config.timeout
         });
@@ -123,9 +124,7 @@ class Model {
     }
     getGenerationConfig() {
         return {
-            temperature: 0.9,
-            topP: 0.1,
-            topK: 16,
+            temperature: 0.7,
         };
     }
 

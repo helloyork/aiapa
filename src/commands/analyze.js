@@ -6,11 +6,12 @@ import { TaskPool } from "../utils.js";
 import { renderTemplate } from "../api/page.js";
 
 import path from "path";
+import open, { apps } from "open";
 
 const settings = {
-    MAX_PROMPT_LINES: 400,
+    MAX_PROMPT_LINES: 300,
     MAX_REVIEW_PER_PRODUCT: 8,
-    prompts: ["summarize these product reviews and give me its ", ", return as json format, no markdown, no extra characters, 6~7 reasons, just return json: {\"data\": {[key: reason]: detail}}\nSTART\n", "\nEND"],
+    prompts: ["summarize these product reviews and give me its ", ", return as json format, no markdown, no extra characters, must be short, return as json, no markdown: {\"data\": {[key: reason]: short summary}}, 6~7 row\ndata:\nSTART\n", "\nEND\nsummarize these product reviews and give me its"," ,return as json format, no markdown, no extra characters, return as json: {\"data\": {[key: reason]: short summary}}"],
     prompts2: ["Given product information, provide a final summary of the product containing:\n**Basic Product Description**:\n<Basic Product Description>\n**Summary of Product Strengths**:\n<Summary of Product Strengths>\n**Summary of Product Weaknesses**:\n<Summary of Product Weakness as many as possible>\n\nThe following is the product information:\nSTART\n", "\nEND\n"],
     skipFileChoose: false,
     file: null,
@@ -76,11 +77,15 @@ export default async function main(app) {
         let data = await readJSON(app.config.file);
 
         let results = await summarize({ app, ai }, data);
-        app.Logger.log(`saved to ${app.UI.hex(app.UI.Colors.Blue)(await saveFile(resolve(app.config.output,
-            `summarized-${formatDate(new Date())}-${path.basename(app.config.file)}.json`
-        ), JSON.stringify(results)))}`);
+        let name = `summarized-${formatDate(new Date())}-${path.basename(app.config.file)}.json`;
+        app.Logger.log(`saved to ${app.UI.hex(app.UI.Colors.Blue)(await saveFile(resolve(app.config.output,name), JSON.stringify(results)))}`);
 
-        await saveRenderable({ app }, results);
+        let _path = await saveRenderable({ app }, results);
+        open(_path, {
+            app: {
+                name: apps.browser
+            }
+        });
 
         app.Logger.info(`Time taken: ${Date.now() - time}ms`);
 
@@ -123,14 +128,14 @@ function getRenderable(datas) {
             return {
                 name: v.title,
                 href: hrefU.origin + hrefU.pathname,
-                stars: stars? (`(${v.star}) `+"⭐".repeat(stars) + "☆".repeat(5 - stars)): "N/A",
+                stars: stars ? (`(${v.star}) ` + "⭐".repeat(stars) + "☆".repeat(5 - stars)) : "N/A",
                 reviewNumber: v.reviewNumber,
                 sales: v.sales,
                 description: v.conclusion,
                 attributes: [{
                     name: "review link",
                     value: v.productsReviewLink
-                }, ...(Object.keys(v.specifications)).map((key) => {
+                }, ...(Object.keys(v.specifications)).filter(k => v.specifications[k].length).map((key) => {
                     return {
                         name: key,
                         value: v.specifications[key].join(", ")
@@ -144,14 +149,15 @@ function getRenderable(datas) {
 /**
  * @param {{app: import("../types").App}} param0 
  * @param {import("../types").ConcludedProduct[]} datas
+ * @returns {Promise<string>}
  */
 async function saveRenderable({ app }, datas) {
     let out = getRenderable(datas);
     let result = renderTemplate({ app }, settings.templateName, out);
     let file = resolve(app.config.output, `result-${formatDate(new Date())}-${path.basename(app.config.file)}.html`);
-    await saveFile(file, result);
+    let _path = await saveFile(file, result);
     app.Logger.log(`saved results to ${app.UI.hex(app.UI.Colors.Blue)(file)}`);
-    return;
+    return _path;
 }
 
 function getSortedSentences(sentences, max = settings.MAX_REVIEW_PER_PRODUCT) {
@@ -210,7 +216,7 @@ async function summarize({ app, ai }, data) {
  */
 async function callSummarize({ app, ai }, reviews, side) {
     let sentences = getSortedSentences(reviews);
-    let prompts = splitArray(sentences, settings.MAX_PROMPT_LINES).map((v) => insertPrompt(settings.prompts, [side, v.join("\n")]));
+    let prompts = splitArray(sentences, settings.MAX_PROMPT_LINES).map((v) => insertPrompt(settings.prompts, [side, v.join("\n"), side]));
     let results = [];
     let taskPool = new TaskPool(app.config.maxConcurrency, app.App.staticConfig.DELAY_BETWEEN_TASK).addTasks(
         prompts.map((v) => async function run(tried = 0) {

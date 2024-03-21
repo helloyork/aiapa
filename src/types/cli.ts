@@ -25,8 +25,8 @@ interface AppConfig {
     apiKey: string[];
     envFile: string;
     query: string;
-    output: string;
-    binPath: string;
+    output: absolutePath;
+    binPath: relativePath;
     model: string;
     absolutePath: absolutePath;
     relativePath: relativePath;
