@@ -205,7 +205,7 @@ export default async function main (app) {
     events.emit(EventTypes.BEFORE_COMMAND_RUN, app);
     app.config.debug && app.Logger.debug("Debug mode enabled, Image will be loaded");
 
-    if (!checkDirPermission(app.config.binPath)) {
+    if (!checkDirPermission(app.App.getFilePath(app.config.binPath))) {
         app.Logger.error("No permission to write to: " + app.config.binPath + ", please check your permission");
         return;
     }

@@ -1,5 +1,5 @@
 import { GenerativeAI } from "../api/generative.js";
-import { getFilesToObj, readJSON, saveFile, resolve, formatDate, createDirIfNotExists, checkDirPermission } from "../api/dat.js";
+import { getFilesToObj, readJSON, saveFile, resolve, formatDate, createDirIfNotExists, checkDirPermission, selectFile } from "../api/dat.js";
 import { TfIdfAnalyze } from "../api/natural.js";
 import { TaskPool } from "../utils.js";
 import { renderTemplate } from "../api/page.js";
@@ -57,7 +57,7 @@ export default async function main (app) {
         app.exit(app.App.exitCode.OK);
     }
 
-    if (!checkDirPermission(app.config.binPath)) {
+    if (!checkDirPermission(app.App.getFilePath(app.config.binPath))) {
         app.Logger.error("No permission to write to: " + app.config.binPath + ", please check your permission");
         return;
     }
@@ -107,12 +107,28 @@ export function getConfig () {
 async function chooseFile ({ app }) {
     let file = app.config.file;
     if (!file) {
-        const otherPromt = "OTHER (enter file path).";
+        const otherPromt = "OTHER (select file).";
         await createDirIfNotExists(app.config.output);
         const files = await getFilesToObj(app.App.getFilePath(app.config.binPath));
         const quetions = [...Object.keys(files).filter(v => v.endsWith(".json")), app.UI.separator(), otherPromt, app.UI.separator()];
         const res = await app.UI.select("select a file as input", quetions);
-        file = res === otherPromt ? await app.UI.input("enter file path:") : files[res];
+        if (res === otherPromt) {
+            try {
+                file = await selectFile({
+                    types: [
+                        [
+                            "JSON",
+                            "*.json"
+                        ]
+                    ]
+                });
+            } catch (err) {
+                app.Logger.warn(err.message);
+                file = await app.UI.input("Enter the file path: ");
+            }
+        } else {
+            file = files[res];
+        }
     }
     return file;
 }

@@ -130,6 +130,12 @@ export const Commands = {
                 description: "Show the bin location",
                 scriptPath: Scripts["bin/whereis"],
                 options: []
+            },
+            open: {
+                name: "open",
+                description: "Open the bin",
+                scriptPath: "./commands/bin/open.js",
+                options: []
             }
         }
     },
