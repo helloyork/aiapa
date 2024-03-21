@@ -24,7 +24,7 @@ export function createMultiProgressBar(payload = {}) {
 }
 
 export class Logger {
-    /**@param {import("./cli.js").App} app  */
+    /** @param {import("./cli.js").App} app  */
     constructor(app) {
         this.app = app;
         this.LevelConfig = {
@@ -63,6 +63,7 @@ export class Logger {
             }
         };
     }
+
     Levels = {
         INFO: "INFO",
         ERROR: "ERROR",
@@ -72,9 +73,11 @@ export class Logger {
         VERBOSE: "VERBOSE",
         UNKNOWN: "UNKNOWN"
     };
+
     generate({ level = this.Levels.UNKNOWN, message }) {
         return `${this.app.UI.hex(this.LevelConfig[level].color)("[" + level + "]")} ${this.LevelConfig[level]?.colorMessage?.(message) || message}`;
     }
+
     log(message) {
         try {
             if (typeof message !== "string") message = JSON.stringify(message);
@@ -82,19 +85,23 @@ export class Logger {
         console.log(this.generate({ level: this.Levels.LOG, message }));
         return this;
     }
+
     warn(message) {
         console.warn(this.generate({ level: this.Levels.WARN, message }));
         return this;
     }
+
     info(message) {
         console.log(this.generate({ level: this.Levels.INFO, message }));
         return this;
     }
+
     error(message) {
         if (message instanceof Error) message = message.message + "\n" + message.stack;
         console.error(this.generate({ level: this.Levels.ERROR, message }));
         return message instanceof Error ? message : new Error(message);
     }
+
     debug(message) {
         try {
             if (typeof message !== "string") message = JSON.stringify(message);
@@ -102,10 +109,12 @@ export class Logger {
         if (this.app.config.debug) console.log(this.generate({ level: this.Levels.DEBUG, message }));
         return this;
     }
+
     verbose(message) {
         if (this.app.config.verbose) console.log(this.generate({ level: this.Levels.VERBOSE, message }));
         return this;
     }
+
     tagless(message) {
         console.log(message);
         return this;
@@ -118,11 +127,13 @@ export class RPM {
     static exit() {
         clearInterval(RPM.intervalId);
     }
+
     static tick() {
         for (const subscriber of RPM.subscribers) {
             subscriber.runNextTask();
         }
     }
+
     constructor(maxRPM) {
         this.interval = 60000 / maxRPM;
         this.queue = [];
@@ -132,9 +143,11 @@ export class RPM {
             RPM.intervalId = setInterval(RPM.tick, this.interval);
         }
     }
+
     addTask(task, ...args) {
         this.queue.push({ task, args });
     }
+
     runNextTask() {
         if (this.queue.length > 0 && Date.now() - this.lastRunTimestamp >= this.interval) {
             const { task, args } = this.queue.shift();
@@ -142,23 +155,23 @@ export class RPM {
             task(...args);
         }
     }
+
     createTask(taskFunction, ...args) {
         return async () => {
             return new Promise(resolve => {
                 this.addTask(() => {
-                    let f = taskFunction(...args);
+                    const f = taskFunction(...args);
                     if (f.then) f.then(resolve);
                     else resolve(f);
                 });
             });
         };
     }
+
     exit() {
         RPM.exit();
     }
 }
-
-
 
 export class TaskPool {
     constructor(maxConcurrent, delayBetweenTasks) {
@@ -168,22 +181,26 @@ export class TaskPool {
         this.running = false;
         this.allTasksDone = null;
     }
+
     addTask(asyncTask) {
         this.taskQueue.push(asyncTask);
         return this;
     }
+
     addTasks(asyncTasks) {
         this.taskQueue.push(...asyncTasks);
         return this;
     }
+
     start() {
         this.running = true;
         this.allTasksDone = new Promise(resolve => this.allTasksDoneResolve = resolve);
         this.runTasks();
         return this.allTasksDone;
     }
+
     runTasks() {
-        let tasksPromises = [];
+        const tasksPromises = [];
         for (let i = 0; i < this.maxConcurrent && this.taskQueue.length > 0; i++) {
             tasksPromises.push(this.executeNextTask());
         }
@@ -195,6 +212,7 @@ export class TaskPool {
             }
         });
     }
+
     async executeNextTask() {
         if (!this.running) return;
         await new Promise(resolve => setTimeout(resolve, this.delayBetweenTasks));
@@ -206,6 +224,7 @@ export class TaskPool {
             }
         });
     }
+
     stop() {
         this.running = false;
         return this;
@@ -216,6 +235,7 @@ export class Rejected extends Error {
     static isRejected(r) {
         return r instanceof Rejected;
     }
+
     constructor(message) {
         super(message);
         this.name = "Rejected";
@@ -234,4 +254,3 @@ export function isValidUrl(string) {
     const urlRegex = /^(https?:\/\/)?((([a-z\d]([a-z\d-]*[a-z\d])*)\.)+[a-z]{2,}|((\d{1,3}\.){3}\d{1,3}))(:\d+)?(\/[-a-z\d%_.~+]*)*(\?[;&a-z\d%_.~+=-]*)?(#[-a-z\d_]*)?$/i;
     return urlRegex.test(string);
 }
-

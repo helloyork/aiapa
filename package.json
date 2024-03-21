@@ -6,15 +6,18 @@
   "bin": "./index.js",
   "scripts": {
     "run": "node index.js",
-    "test": "node ./test/index.js"
+    "test": "standard && node ./test/index.js"
   },
   "author": "helloyork@icloud.com",
   "license": "MIT",
   "type": "module",
   "types": "./src/types/index.d.ts",
-  "dependencies": {
+  "devDependencies": {
     "@babel/eslint-parser": "^7.23.10",
     "@babel/plugin-syntax-import-assertions": "^7.23.3",
+    "standard": "^17.1.0"
+  },
+  "dependencies": {
     "@google/generative-ai": "^0.2.1",
     "chalk": "^5.3.0",
     "cheerio": "^1.0.0-rc.12",

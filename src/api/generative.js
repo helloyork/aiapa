@@ -1,4 +1,3 @@
-
 import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from "@google/generative-ai";
 
 import { loadFile, loadFileSync } from "./dat.js";
@@ -6,7 +5,6 @@ import { Rejected, RPM } from "../utils.js";
 import { App } from "../cli.js";
 
 const models = JSON.parse(loadFileSync(App.getFilePath("./dat/models.json")));
-
 
 /**
  * @typedef {Object} MIME
@@ -17,7 +15,7 @@ export const MIME = {
     JPEG: "image/jpeg",
     WEBP: "image/webp",
     HEIC: "image/heic",
-    HEIF: "image/heif",
+    HEIF: "image/heif"
 };
 
 /**
@@ -34,36 +32,39 @@ export const MIME = {
 
 class Model {
     /**
-     * 
-     * @param {App} app 
-     * @param {GenerativeAI} generativeAI 
-     * @param {{model: string, models: ModelConfig[], apikey: string}} modelConfig 
+     *
+     * @param {App} app
+     * @param {GenerativeAI} generativeAI
+     * @param {{model: string, models: ModelConfig[], apikey: string}} modelConfig
      */
-    constructor(app, generativeAI, modelConfig) {
+    constructor (app, generativeAI, modelConfig) {
         this.app = app;
         this.generativeAI = generativeAI;
         this.modelConfig = modelConfig;
         this.api = new GoogleGenerativeAI(modelConfig.apikey).getGenerativeModel({
             model: this.getModelConfig().model,
             safetySettings: this.getSafetySettings(),
-            generationConfig: this.getGenerationConfig(),
-            
+            generationConfig: this.getGenerationConfig()
+
         }, {
             timeout: app.config.timeout
         });
     }
-    getModelConfig() {
+
+    getModelConfig () {
         return this.modelConfig.models[this.modelConfig.model];
     }
-    async generateContent(prompts) {
+
+    async generateContent (prompts) {
         return await this.api.generateContent(prompts);
     }
+
     /**
-     * @param {string} path 
-     * @param {MIME} mimeType 
+     * @param {string} path
+     * @param {MIME} mimeType
      * @returns {Promise<{inlineData: {data: string, mimeType: string}}>}
      */
-    async imgToBase64(path, mimeType) {
+    async imgToBase64 (path, mimeType) {
         return {
             inlineData: {
                 data: Buffer.from(await loadFile(path)).toString("base64"),
@@ -71,28 +72,32 @@ class Model {
             }
         };
     }
-    async imgsToBase64(imgs) {
+
+    async imgsToBase64 (imgs) {
         return await Promise.all(imgs.map(async (img) => {
             return await this.imgToBase64(img);
         }));
     }
-    async countTokens(text) {
+
+    async countTokens (text) {
         return await this.api.countTokens(text);
     }
+
     /**
-     * @param {string | import("@google/generative-ai").GenerateContentRequest | (string | import("@google/generative-ai").Part)[]} prompts 
+     * @param {string | import("@google/generative-ai").GenerateContentRequest | (string | import("@google/generative-ai").Part)[]} prompts
      * @returns {Promise<string|Rejected>}
      */
-    async call(prompts) {
+    async call (prompts) {
         return await this.tryExecute(async () => {
             return await (this.generativeAI.rpm.createTask(async () => {
-                let result = await this.generateContent(prompts);
-                let response = result.response;
+                const result = await this.generateContent(prompts);
+                const response = result.response;
                 return response.text();
             })());
         });
     }
-    async tryExecute(f, whenError = () => { }) {
+
+    async tryExecute (f, whenError = () => { }) {
         try {
             return await f();
         } catch (err) {
@@ -102,52 +107,54 @@ class Model {
             return new Rejected(err.message);
         }
     }
-    getSafetySettings() {
+
+    getSafetySettings () {
         return [
             {
                 category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-                threshold: HarmBlockThreshold.BLOCK_NONE,
+                threshold: HarmBlockThreshold.BLOCK_NONE
             },
             {
                 category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-                threshold: HarmBlockThreshold.BLOCK_NONE,
+                threshold: HarmBlockThreshold.BLOCK_NONE
             },
             {
                 category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-                threshold: HarmBlockThreshold.BLOCK_NONE,
+                threshold: HarmBlockThreshold.BLOCK_NONE
             },
             {
                 category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-                threshold: HarmBlockThreshold.BLOCK_NONE,
-            },
+                threshold: HarmBlockThreshold.BLOCK_NONE
+            }
         ];
     }
-    getGenerationConfig() {
+
+    getGenerationConfig () {
         return {
-            temperature: 0.7,
+            temperature: 0.7
         };
     }
-
 }
 
 export class GenerativeAI {
     static GET_API_KEY = "https://makersuite.google.com/app/apikey";
     static defaultAiConfig = {
-        apikeyPool: [],
+        apikeyPool: []
     };
 
     models = models;
-    /**@type {Model} */
+    /** @type {Model} */
     api = null;
-    /**@returns {Model} */
-    getModelConfig() {
+    /** @returns {Model} */
+    getModelConfig () {
         return this.models[this.app.config.model];
     }
+
     /**
      * @constructor
-     * @param {App} app 
+     * @param {App} app
      */
-    constructor(app, aiConfig = {}) {
+    constructor (app, aiConfig = {}) {
         this.app = app;
         this.running = true;
         this.aiConfig = { ...GenerativeAI.defaultAiConfig, ...aiConfig };
@@ -159,13 +166,16 @@ export class GenerativeAI {
 
         this.init();
     }
-    getAPI() {
+
+    getAPI () {
         return this.api;
     }
-    getAPIRotated() {
+
+    getAPIRotated () {
         return this.rotatePool().getAPI();
     }
-    rotatePool() {
+
+    rotatePool () {
         if (this.api) this._pool.push(this.api);
         this.api = this._pool.shift();
         if (!this.api) {
@@ -173,7 +183,8 @@ export class GenerativeAI {
         }
         return this;
     }
-    init() {
+
+    init () {
         this._pool = [];
         this.aiConfig.apikeyPool.forEach(apikey => {
             this._pool.push(new Model(this.app, this, {
@@ -185,9 +196,9 @@ export class GenerativeAI {
         this.rotatePool();
         return this;
     }
-    exit() {
+
+    exit () {
         this.rpm.exit();
         this.running = false;
     }
 }
-

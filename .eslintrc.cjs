@@ -1,25 +1,25 @@
 module.exports = {
-    "env": {
-        "node": true,
-        "es2023": true,
-        "browser": true
+    env: {
+        node: true,
+        es2023: true,
+        browser: true
     },
-    "extends": "eslint:recommended",
-    "overrides": [
+    extends: "eslint:recommended",
+    overrides: [
         {
-            "env": {
-                "node": true
+            env: {
+                node: true
             },
-            "files": [
+            files: [
                 ".eslintrc.{js,cjs}"
             ],
-            "parserOptions": {
-                "sourceType": "script"
+            parserOptions: {
+                sourceType: "script"
             }
         }
     ],
-    "rules": {
-        "indent": [
+    rules: {
+        indent: [
             "error",
             4
         ],
@@ -27,24 +27,24 @@ module.exports = {
             "error",
             "windows"
         ],
-        "quotes": [
+        quotes: [
             "error",
             "double"
         ],
-        "semi": [
+        semi: [
             "error",
             "always"
         ]
     },
     parser: "@babel/eslint-parser",
     parserOptions: {
-        "ecmaVersion": "latest",
-        "sourceType": "module",
+        ecmaVersion: "latest",
+        sourceType: "module",
         requireConfigFile: false,
         babelOptions: {
             plugins: [
                 "@babel/plugin-syntax-import-assertions"
-            ],
-        },
-    },
+            ]
+        }
+    }
 };

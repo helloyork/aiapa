@@ -11,7 +11,7 @@ export const Colors = {
     White: "#FFFFFF",
     Black: "#000000",
     Gray: "#808080",
-    Navy: "#000080",
+    Navy: "#000080"
 };
 
 export async function askIfInvalid(cur, fun, mes) {
@@ -31,7 +31,7 @@ export async function input(message) {
     const { answer } = await inquirer.prompt({
         type: "input",
         name: "answer",
-        message,
+        message
     });
     return answer;
 }
@@ -46,7 +46,7 @@ export async function password(message) {
         type: "password",
         name: "answer",
         message,
-        mask: "*",
+        mask: "*"
     });
     return answer;
 }
@@ -60,7 +60,7 @@ export async function confirm(message) {
     const { answer } = await inquirer.prompt({
         type: "confirm",
         name: "answer",
-        message,
+        message
     });
     return answer;
 }
@@ -76,7 +76,7 @@ export async function select(message, choices) {
         type: "list",
         name: "answer",
         message,
-        choices,
+        choices
     });
     return answer;
 }
@@ -93,7 +93,7 @@ export async function selectByObject(message, choiceObj) {
         type: "list",
         name: "answer",
         message,
-        choices: Object.keys(choiceObj),
+        choices: Object.keys(choiceObj)
     });
     return choiceObj[answer];
 }
@@ -109,7 +109,7 @@ export async function checkbox(message, choices) {
         type: "checkbox",
         name: "answer",
         message,
-        choices,
+        choices
     });
     return answer;
 }

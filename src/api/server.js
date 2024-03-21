@@ -1,4 +1,3 @@
-
 import ProxyChain from "proxy-chain";
 
 // import { loadFileSync } from "./dat.js";
@@ -8,18 +7,21 @@ import { randomInt } from "../utils.js";
 // const proxies = JSON.parse(loadFileSync(App.getFilePath("./dat/proxies.json")));
 
 export class Server {
-    constructor(app) {
+    constructor (app) {
         this.app = app;
     }
+
     proxyList = [];
-    get proxies() {
+    get proxies () {
         return this.proxyList;
     }
-    addProxis(proxies) {
+
+    addProxis (proxies) {
         this.proxyList = Array.from(new Set([...this.proxyList, ...proxies]));
         return this;
     }
-    init(port = 8080) {
+
+    init (port = 8080) {
         this.port = port;
         this.proxy = new ProxyChain.Server({
             port: this.port,
@@ -37,7 +39,8 @@ export class Server {
         });
         return this;
     }
-    async close() {
+
+    async close () {
         if (!this.proxy) return;
         await this.proxy?.close();
         this.app.Logger.info("Proxy server closed");
