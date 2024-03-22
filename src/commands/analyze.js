@@ -148,10 +148,16 @@ function getRenderable (datas) {
                 reviewNumber: v.reviewNumber,
                 sales: v.sales,
                 description: v.conclusion,
+                price: v.price,
                 attributes: [{
                     name: "review link",
                     value: v.productsReviewLink
                 }, ...(Object.keys(v.specifications)).filter(k => v.specifications[k].length).map((key) => {
+                    return {
+                        name: key,
+                        value: v.specifications[key].join(", ")
+                    };
+                }), ...(Object.keys(v.attr)).map((key) => {
                     return {
                         name: key,
                         value: v.specifications[key].join(", ")

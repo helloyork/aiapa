@@ -19,6 +19,7 @@ export interface ProductDetails {
     title: string;
     price: string;
     sales: string;
+    attr: {[key: string]: string};
     star: string;
     specifications: Specifications;
     reviewNumber: number;
