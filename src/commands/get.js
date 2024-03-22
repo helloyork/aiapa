@@ -2,7 +2,7 @@
 
 import { Browser } from "../api/puppeteer.js";
 import { TaskPool, randomInt, createProgressBar, createMultiProgressBar, sleep, isValidUrl, EventEmitter } from "../utils.js";
-import { loadFile, saveFile, joinPath, saveCSV, splitByNewLine, formatDate, checkDirPermission } from "../api/dat.js";
+import { loadFile, saveFile, joinPath, saveCSV, splitByNewLine, formatDate, checkDirPermission, CSVstringify } from "../api/dat.js";
 import { Server } from "../api/server.js";
 
 /**
@@ -304,7 +304,8 @@ function getSaveOptions(app, time) {
             return await saveFile(getPath(app, time, ".json"), JSON.stringify(res));
         },
         "save as .csv": async function (res) {
-            return await saveCSV(app.config.output, getPath(app, time, ".csv"), formatOutput(res));
+            return await saveFile(getPath(app, time, ".csv"), CSVstringify(formatOutput(res)));
+            // return await saveCSV(app.config.output, getPath(app, time, ".csv"), formatOutput(res));
         },
         "log to console": (res) => app.Logger.log(JSON.stringify(res)),
         none: () => { }
@@ -323,14 +324,36 @@ function getTitle(app) {
     return app.config.query;
 }
 
+/**@param {import("../types").Product[]} res */
 function formatOutput(res) {
-    return res.map(r => {
-        const o = {};
-        Object.entries(r).forEach(([key, value]) => {
-            o[key] = typeof value === "string" ? value : JSON.stringify(value);
+    let output = [];
+    res.map(r => {
+        output.push({
+            href: r.href,
+            title: r.title,
+            price: r.price,
+            sales: r.sales,
+            star: r.star,
+            reviewNumber: r.reviewNumber,
+            productsReviewLink: r.productsReviewLink,
+            review: ""
         });
-        return o;
+        ["positive", "critical"].map(type => {
+            r.reviews[type].map(review => {
+                output.push({
+                    href: "",
+                    title: "",
+                    price: "",
+                    sales: "",
+                    star: "",
+                    reviewNumber: "",
+                    productsReviewLink: "",
+                    review: `${review.title}\nrate: ${review.rating}\n(${review.date})\n${review.content}`
+                });
+            });
+        });
     });
+    return output;
 }
 
 async function getProductLinks({ app, browser, page, search }) {

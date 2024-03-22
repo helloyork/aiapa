@@ -2,7 +2,7 @@ import { GenerativeAI } from "../api/generative.js";
 import { Rejected } from "../utils.js";
 
 /** @param {import("../types").App} app */
-export default async function main (app) {
+export default async function main(app) {
     if (!app.config.debug) {
         app.Logger.warn("Debug mode is not enabled. Enable it by passing --debug or user config {\"debug\":true} to the command.");
         return;

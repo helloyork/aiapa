@@ -74,6 +74,7 @@ export const Scripts = {
     analyze: "./commands/analyze.js",
     bin: "./commands/bin.js",
     test: "./commands/test.js",
+    start: "./commands/start.js",
     "bin/clean": "./commands/bin/clean.js",
     "bin/clear": "./commands/bin/clean.js",
     "bin/list": "./commands/bin/list.js",
@@ -81,12 +82,7 @@ export const Scripts = {
 };
 
 /**
- * @typedef {import("./cli.js").CommandDefinition} CommandDefinition
- */
-/**
- * @typedef {Object} Commands
- * @property {CommandDefinition} get
- * @property {CommandDefinition} bin
+ * @typedef {import("./types").CommandDefinition} CommandDefinition
  */
 /** @type {Commands} */
 export const Commands = {
@@ -139,16 +135,16 @@ export const Commands = {
             }
         }
     },
-    test: {
-        name: "test",
-        description: "test methods",
-        scriptPath: Scripts.test,
-        options: [...Object.values(Options)]
-    },
+    // test: {
+    //     name: "test",
+    //     description: "test methods",
+    //     scriptPath: Scripts.test,
+    //     options: [...Object.values(Options)]
+    // },
     start: {
         name: "start",
         description: "AIAPA wizard",
-        scriptPath: "./commands/start.js",
+        scriptPath: Scripts.start,
         options: [Options.force, Options.debug, Options.verbose]
     }
 };

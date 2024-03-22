@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 
 /**
- * @todo better file selector
- * @todo better way to get cmd module
  *
  * @todo maybe rewrite these command as class?
  */
