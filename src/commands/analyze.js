@@ -157,7 +157,7 @@ function getRenderable(datas) {
                         name: key,
                         value: v.specifications[key].join(", ")
                     };
-                }), ...(Object.keys(v.attr)).map((key) => {
+                }), ...(Object.keys(v.attr || {})).map((key) => {
                     return {
                         name: key,
                         value: v.specifications[key].join(", ")
