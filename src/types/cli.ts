@@ -25,8 +25,8 @@ interface AppConfig {
     apiKey: string[];
     envFile: string;
     query: string;
-    output: string;
-    binPath: string;
+    output: absolutePath;
+    binPath: relativePath;
     model: string;
     absolutePath: absolutePath;
     relativePath: relativePath;
@@ -61,6 +61,7 @@ export interface CommandDefinition {
 }
 
 export declare class App {
+    static scriptCache: { [key: string]: any };
     static loadScript: (scriptPath: relativePath) => Promise<any>;
     static getFilePath: (filePath: relativePath) => absolutePath;
     static Option: commander.Option;
@@ -101,6 +102,7 @@ export declare class App {
     registerProgram: ({ name, description, version }: ProgramDefinition) => this;
     getCommandTree: (parent: any) => ({ [key: string]: CommandDefinition });
     getCommand: (parent: any, args: any) => any;
+    getModule(command: CommandDefinition): Promise<CommandRuntimeModule>;
     /**
      * run a command
      * @param cmd

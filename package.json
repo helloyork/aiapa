@@ -1,29 +1,51 @@
 {
   "name": "aiapa",
-  "version": "0.1.10",
+  "version": "0.1.12",
   "description": "AI Analyzes Products on Amazon",
   "main": "./index.js",
   "bin": "./index.js",
   "scripts": {
     "run": "node index.js",
-    "test": "node ./test/index.js"
+    "test": "standard && node ./test/index.js"
   },
   "author": "helloyork@icloud.com",
   "license": "MIT",
+  "keywords": [
+    "ai",
+    "amazon",
+    "product",
+    "analyze",
+    "web scraping",
+    "puppeteer",
+    "data scraping",
+    "amazon scraping",
+    "product scraping",
+    "product analysis",
+    "amazon analysis",
+    "ai analysis",
+    "scraping tool",
+    "data analysis"
+  ],
   "type": "module",
   "types": "./src/types/index.d.ts",
-  "dependencies": {
+  "devDependencies": {
     "@babel/eslint-parser": "^7.23.10",
     "@babel/plugin-syntax-import-assertions": "^7.23.3",
+    "standard": "^17.1.0"
+  },
+  "dependencies": {
     "@google/generative-ai": "^0.2.1",
     "chalk": "^5.3.0",
     "cheerio": "^1.0.0-rc.12",
     "cli-progress": "^3.12.0",
     "commander": "^12.0.0",
     "dotenv": "^16.4.5",
+    "easy-file-dialogs": "^1.2.0",
+    "handlebars": "^4.7.8",
     "inquirer": "^9.2.15",
     "json2csv": "^6.0.0-alpha.2",
     "natural": "^6.12.0",
+    "open": "^10.1.0",
     "proxy-chain": "^2.4.0",
     "puppeteer": "^22.1.0",
     "puppeteer-extra": "^3.3.6",

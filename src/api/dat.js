@@ -6,10 +6,67 @@ import { pathToFileURL } from "url";
 
 import { randomInt } from "../utils.js";
 import { Parser } from "json2csv";
+import { exec } from "child_process";
+import { openFileName } from "easy-file-dialogs";
 
 export { resolve } from "path";
 
 let UAs = [];
+
+export function execSync(command, options = {}) {
+    return exec(command, options);
+}
+
+/**
+ * 
+ * @param {{types: [string,string][], multiple: boolean}} options 
+ * @returns 
+ */
+export async function selectFile(options = {
+    types: [],
+    multiple: false
+}) {
+    return await openFileName({
+        fileTypes: options.types,
+        multiple: options.multiple
+    });
+}
+
+export function openFolder(folderPath) {
+    try {
+        if (isWindows()) {
+            execSync(`start ${folderPath}`);
+        } else if (isMacosOrLinux()) {
+            execSync(`open ${folderPath}`); // for macOS
+            execSync(`nautilus ${folderPath}`); // for Linux
+        } else {
+            console.error("Unsupported platform");
+        }
+    } catch (error) {
+        return error;
+    }
+}
+
+export function isWindows() {
+    return process.platform === "win32";
+}
+
+export function isMacosOrLinux() {
+    return process.platform === "darwin" || process.platform === "linux";
+}
+
+export function checkDirPermission(dirPath) {
+    try {
+        fsSync.accessSync(dirPath, fsSync.constants.W_OK | fsSync.constants.R_OK);
+        return true;
+    } catch (error) {
+        return false;
+    }
+}
+
+export function getHomeDir() {
+    return process.env.HOME || process.env.USERPROFILE;
+}
 
 /**
  * @typedef {string} relativePath path relative to the cli.js file
@@ -21,20 +78,20 @@ export function isImported(url) {
 }
 
 /**
- * @param {absolutePath} filePath 
- * @param {fsSync.OpenMode} encoding 
+ * @param {absolutePath} filePath
+ * @param {fsSync.OpenMode} encoding
  */
 export async function loadFile(filePath, encoding = "utf-8") {
     return await fs.readFile(path.resolve(process.cwd(), filePath), encoding);
 }
 
 export function formatDate(date) {
-    let year = date.getFullYear();
-    let month = (date.getMonth() + 1).toString().padStart(2, "0");
-    let day = date.getDate().toString().padStart(2, "0");
-    let hour = date.getHours().toString().padStart(2, "0");
-    let minute = date.getMinutes().toString().padStart(2, "0");
-    let second = date.getSeconds().toString().padStart(2, "0");
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, "0");
+    const day = date.getDate().toString().padStart(2, "0");
+    const hour = date.getHours().toString().padStart(2, "0");
+    const minute = date.getMinutes().toString().padStart(2, "0");
+    const second = date.getSeconds().toString().padStart(2, "0");
 
     return `${year}-${month}-${day}_${hour}-${minute}-${second}`;
 }
@@ -50,15 +107,15 @@ export function splitByNewLine(data) {
 }
 
 /**
- * @param {absolutePath} filePath 
- * @param {string | undefined} encoding 
+ * @param {absolutePath} filePath
+ * @param {string | undefined} encoding
  */
 export function loadFileSync(filePath, encoding = "utf-8") {
     return fsSync.readFileSync(path.resolve(process.cwd(), filePath), encoding);
 }
 
 /**
- * @param {string} _path 
+ * @param {string} _path
  * @returns {absolutePath}
  */
 export function resolveFromCwd(_path) {
@@ -70,7 +127,7 @@ export function joinPath(...paths) {
 }
 
 /**
- * @param {absolutePath} dirPath 
+ * @param {absolutePath} dirPath
  */
 export async function createDirIfNotExists(dirPath) {
     if (!await directoryExists(dirPath)) {
@@ -80,7 +137,7 @@ export async function createDirIfNotExists(dirPath) {
 
 export async function saveFile(filePath, data, encoding = "utf-8") {
     await createDirIfNotExists(path.dirname(filePath));
-    let _path = path.resolve(process.cwd(), filePath);
+    const _path = path.resolve(process.cwd(), filePath);
     await fs.writeFile(_path, data, encoding);
     return _path;
 }
@@ -90,16 +147,21 @@ export async function readJSON(filePath) {
 }
 
 /**
- * @param {absolutePath} filePath 
- * @param {string} name 
- * @param {readonly any[] | Readonly<any>} data 
- * @param {import("json2csv").Options<any> | undefined} options 
- * @returns 
+ * @deprecated
+ * @param {absolutePath} filePath
+ * @param {string} name
+ * @param {readonly any[] | Readonly<any>} data
+ * @param {import("json2csv").Options<any> | undefined} options
+ * @returns
  */
 export async function saveCSV(filePath, name, data, options = {}) {
-    const savePath = path.join(process.cwd(), filePath, `${name}.csv`), csv = new Parser(options).parse(data);
+    const savePath = path.join(process.cwd(), filePath, `${name}.csv`); const csv = new Parser(options).parse(data);
     await saveFile(savePath, csv);
     return savePath;
+}
+
+export function CSVstringify(data, options = {}) {
+    return new Parser(options).parse(data);
 }
 
 export async function appendFile(filePath, data, encoding = "utf-8") {
@@ -129,7 +191,7 @@ export async function directoryExists(dirPath) {
 }
 
 /**
- * @param {absolutePath} dirPath 
+ * @param {absolutePath} dirPath
  * @returns {Promise<string[]>}
  */
 export async function getFilesInDir(dirPath) {
@@ -137,7 +199,7 @@ export async function getFilesInDir(dirPath) {
 }
 
 /**
- * @param {absolutePath} dirPath 
+ * @param {absolutePath} dirPath
  * @returns {Promise<{[key: string]: absolutePath}>}
  */
 export async function getFilesToObj(dirPath) {
@@ -175,13 +237,10 @@ export async function randomUserAgent(app) {
 }
 
 /**
- * @param {string} url 
- * @param {RequestInit} options 
+ * @param {string} url
+ * @param {RequestInit} options
  * @returns {Promise<Response>}
  */
 export async function loadWeb(url, options = {}) {
     return await fetch(url, options);
 }
-
-
-

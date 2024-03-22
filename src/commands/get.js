@@ -1,17 +1,14 @@
 /* eslint-disable indent */
 
-
 import { Browser } from "../api/puppeteer.js";
 import { TaskPool, randomInt, createProgressBar, createMultiProgressBar, sleep, isValidUrl, EventEmitter } from "../utils.js";
-import { loadFile, saveFile, joinPath, saveCSV, splitByNewLine, formatDate } from "../api/dat.js";
+import { loadFile, saveFile, joinPath, saveCSV, splitByNewLine, formatDate, checkDirPermission, CSVstringify } from "../api/dat.js";
 import { Server } from "../api/server.js";
-
 
 /**
  * @typedef {import("../types").Product} Product
  * @typedef {import("../types").ElementSelector} ElementSelector
  */
-
 
 const AMAZON_SEARCH_URL = "https://www.amazon.com/s";
 const config = {
@@ -22,7 +19,7 @@ const config = {
 
 export const EventTypes = {
     BEFORE_COMMAND_RUN: "beforeCommandRun",
-    AFTER_COMMAND_RUN: "afterCommandRun",
+    AFTER_COMMAND_RUN: "afterCommandRun"
 };
 export const events = new EventEmitter();
 
@@ -44,9 +41,9 @@ const Selector = {
     specificationsStyle: "#variation_style_name ul li",
     specificationsColor: "#variation_color_name ul li",
     specificationsPattern: "#variation_pattern_name ul li",
-    nextPageButton: "#cm_cr-pagination_bar li.a-last > a",
+    nextPageButton: "#cm_cr-pagination_bar li.a-last > a"
 };
-/**@type {{[key: string]: ElementSelector}}*/
+/** @type {{[key: string]: ElementSelector}} */
 const Details = {
     href: {
         evaluate: () => {
@@ -87,7 +84,7 @@ const Details = {
                     return Array.from(els).map((el) => {
                         let res = el.textContent.replace(/\n/g, "").trim();
                         if (el.querySelector("img")) {
-                            let img = el.querySelector("img");
+                            const img = el.querySelector("img");
                             if (img.alt) res += `(${img.alt})`;
                             if (img.src) res += " " + img.src;
                         }
@@ -126,7 +123,7 @@ const Details = {
         evaluate: (el) => {
             return el.href;
         }
-    },
+    }
 };
 const ReviewSelectors = {
     title: {
@@ -149,13 +146,13 @@ const ReviewSelectors = {
         evaluate: (el) => {
             return el.textContent.split("\n".repeat(8) + "  \n  \n    ").slice(1).join("").trim();
         }
-    },
+    }
 };
 
 /**
  * register a selector to be used for getting details
- * @param {string} key 
- * @param {ElementSelector} selector 
+ * @param {string} key
+ * @param {ElementSelector} selector
  */
 export function registerDetailSelector(key, selector) {
     Details[key] = selector;
@@ -171,8 +168,8 @@ export function registerDetailSelector(key, selector) {
  *         evaluate: (el) => el.href
  *     });
  * }).run(Commands.get);
- * @param {string} key 
- * @param {function(Element|Object.<string, Element|Element[]>): any} evaluate 
+ * @param {string} key
+ * @param {function(Element|Object.<string, Element|Element[]>): any} evaluate
  */
 export function registerEvaluation(key, evaluate) {
     Details[key].evaluate = evaluate;
@@ -185,7 +182,7 @@ export function registerEvaluation(key, evaluate) {
  *    mod.registerProxy(["http://127.0.0.1:8081", // some proxies
  *    ]);
  * });
- * @param {string[]|string} proxy 
+ * @param {string[]|string} proxy
  * @returns {string[]}
  */
 export function registerProxy(proxy) {
@@ -203,16 +200,19 @@ export function getConfig() {
     return config;
 }
 
-
-
-/**@param {import("../cli.js").App} app */
+/** @param {import("../types").App} app */
 export default async function main(app) {
     events.emit(EventTypes.BEFORE_COMMAND_RUN, app);
     app.config.debug && app.Logger.debug("Debug mode enabled, Image will be loaded");
 
-    let server = new Server(app);
-    let browser = setupBrowser(app, server);
-    let startTime = Date.now(), result;
+    if (!checkDirPermission(app.App.getFilePath(app.config.binPath))) {
+        app.Logger.error("No permission to write to: " + app.config.binPath + ", please check your permission");
+        return;
+    }
+
+    const server = new Server(app);
+    const browser = setupBrowser(app, server);
+    const startTime = Date.now(); let result;
 
     app.Logger.verbose("Launching browser");
     app.Logger.verbose("Import state: " + app.isImported);
@@ -229,18 +229,17 @@ export default async function main(app) {
         setupBrowserEvents(app, browser, UAs);
 
         result = await browser.page(async (page) => {
-            return await search({ browser, page, search: app.config.query, app, });
+            return await search({ browser, page, search: app.config.query, app });
         });
         await browser.close();
 
-        if(!result) throw new Error("No result found");
+        if (!result) throw new Error("No result found");
 
-        let time = formatDate(new Date());
+        const time = formatDate(new Date());
 
-        let path = await ((!app.isImported && !config.skipSave)? saveResults(app, result, time): saveFile(getPath(app, time, ".json"), JSON.stringify(result)));
+        const path = await ((!app.isImported && !config.skipSave) ? saveResults(app, result, time) : saveFile(getPath(app, time, ".json"), JSON.stringify(result)));
         app.Logger.log(`Saved to: ${app.UI.hex(app.UI.Colors.Blue)(path)}`);
         events.emit(EventTypes.AFTER_COMMAND_RUN, app, path, result);
-
     } catch (error) {
         app.Logger.error("An error occurred");
         app.Logger.error(error);
@@ -255,7 +254,7 @@ export default async function main(app) {
 }
 
 function setupBrowser(app, server) {
-    let browser = new Browser(app, { args: [...(app.config.proxy ? [`--proxy-server=${"http://localhost:" + server.port}`] : [])] })
+    const browser = new Browser(app, { args: [...(app.config.proxy ? [`--proxy-server=${"http://localhost:" + server.port}`] : [])] })
         .setAllowRecycle(true).setMaxFreePages(app.config.maxConcurrency < 10 ? 10 : app.config.maxConcurrency);
     browser.usePlugin(Browser.Plugins.StealthPlugin());
     return browser;
@@ -278,8 +277,8 @@ function setupBrowserEvents(app, browser, UAs) {
 }
 
 async function saveResults(app, result, time) {
-    let options = getSaveOptions(app, time);
-    let res = await app.UI.select("Save files to: ", Object.keys(options));
+    const options = getSaveOptions(app, time);
+    const res = await app.UI.select("Save files to: ", Object.keys(options));
     if (res) return await options[res](result);
 }
 
@@ -289,15 +288,16 @@ function getSaveOptions(app, time) {
             return await saveFile(getPath(app, time, ".json"), JSON.stringify(res));
         },
         "save as .csv": async function (res) {
-            return await saveCSV(app.config.output, getPath(app, time, ".csv"), formatOutput(res));
+            return await saveFile(getPath(app, time, ".csv"), CSVstringify(formatOutput(res)));
+            // return await saveCSV(app.config.output, getPath(app, time, ".csv"), formatOutput(res));
         },
         "log to console": (res) => app.Logger.log(JSON.stringify(res)),
-        "none": () => { }
+        none: () => { }
     };
 }
 
 function getPath(app, time, ext) {
-    let title = getTitle(app);
+    const title = getTitle(app);
     return joinPath(app.config.output, `${title}-result-${time}${ext}`);
 }
 
@@ -308,23 +308,45 @@ function getTitle(app) {
     return app.config.query;
 }
 
+/**@param {import("../types").Product[]} res */
 function formatOutput(res) {
-    return res.map(r => {
-        let o = {};
-        Object.entries(r).forEach(([key, value]) => {
-            o[key] = typeof value === "string" ? value : JSON.stringify(value);
+    let output = [];
+    res.map(r => {
+        output.push({
+            href: r.href,
+            title: r.title,
+            price: r.price,
+            sales: r.sales,
+            star: r.star,
+            reviewNumber: r.reviewNumber,
+            productsReviewLink: r.productsReviewLink,
+            review: ""
         });
-        return o;
+        ["positive", "critical"].map(type => {
+            r.reviews[type].map(review => {
+                output.push({
+                    href: "",
+                    title: "",
+                    price: "",
+                    sales: "",
+                    star: "",
+                    reviewNumber: "",
+                    productsReviewLink: "",
+                    review: `${review.title}\nrate: ${review.rating}\n(${review.date})\n${review.content}`
+                });
+            });
+        });
     });
+    return output;
 }
 
 async function getProductLinks({ app, browser, page, search }) {
-    let url = new URL(AMAZON_SEARCH_URL);
+    const url = new URL(AMAZON_SEARCH_URL);
     url.searchParams.append("k", search);
     url.searchParams.append("s", "exact-aware-popularity-rank");
     url.searchParams.append("page", "1");
 
-    let links = [], tried = 0;
+    let links = []; let tried = 0;
     while (links.length < app.config.maxTask) {
         url.searchParams.set("page", ++tried);
 
@@ -358,7 +380,7 @@ async function getProductLinks({ app, browser, page, search }) {
 async function search({ app, browser, page, search }) {
     if (!app.config.debug) await browser.blockResources(page, config.blockedResourceTypes);
     if (!search && !search.length) {
-        let res = await app.UI.input("Pleae type in query to search for (or a product link):");
+        const res = await app.UI.input("Pleae type in query to search for (or a product link):");
         if (!res || !res.length) throw new Error("No query provided, please provide by --query <string>");
         app.config.query = search = res;
     }
@@ -367,14 +389,14 @@ async function search({ app, browser, page, search }) {
         app.config.maxConcurrency = 5;
     }
 
-    let links = isValidUrl(search) ? [search] : await getProductLinks({ app, browser, page, search });
+    const links = isValidUrl(search) ? [search] : await getProductLinks({ app, browser, page, search });
 
     await browser.free(page);
 
     let bar = createProgressBar();
     bar.start(app.config.maxTask, 0);
 
-    let products = [], pool = new TaskPool(app.config.maxConcurrency, app.config.lowRam ? app.App.staticConfig.DELAY_BETWEEN_TASK : 0).addTasks(
+    const products = []; const pool = new TaskPool(app.config.maxConcurrency, app.config.lowRam ? app.App.staticConfig.DELAY_BETWEEN_TASK : 0).addTasks(
         links.slice(0, Number(app.config.maxTask)).map((link) => async () => {
             return await browser.page(async (page) => {
                 if (!app.config.debug) await browser.blockResources(page, config.blockedResourceTypes);
@@ -384,7 +406,7 @@ async function search({ app, browser, page, search }) {
 
                 await browser.scrowDown(page);
 
-                let res = await getDetails({ app, browser, page, search });
+                const res = await getDetails({ app, browser, page, search });
                 products.push(res);
 
                 await browser.free(page);
@@ -401,15 +423,14 @@ async function search({ app, browser, page, search }) {
     app.Logger.info("Running reviews search...");
 
     bar = createMultiProgressBar({
-        format: "{bar} | {title} | {value}/{total}",
+        format: "{bar} | {title} | {value}/{total}"
     });
-    let result = await searchReviews({ app, browser, page, search }, bar, products),
-        reviewNumber = result.reduce((acc, cur) => acc + Object.values(cur.reviews).map(v => v.length).reduce((a, b) => a + b, 0), 0);
+    const result = await searchReviews({ app, browser, page, search }, bar, products);
+    const reviewNumber = result.reduce((acc, cur) => acc + Object.values(cur.reviews).map(v => v.length).reduce((a, b) => a + b, 0), 0);
     app.Logger.log(`Got ${reviewNumber} reviews`);
     bar.stop();
 
     return result;
-
 }
 
 /**
@@ -418,7 +439,7 @@ async function search({ app, browser, page, search }) {
  * @returns {Promise<ProductDetails>}
  */
 async function getDetails({ app, browser, page }) {
-    let details = await Promise.all(Object.keys(Details).map(async (key) => {
+    const details = await Promise.all(Object.keys(Details).map(async (key) => {
         try {
             return {
                 key,
@@ -433,7 +454,7 @@ async function getDetails({ app, browser, page }) {
             };
         }
     }));
-    let output = {};
+    const output = {};
     details.forEach((detail) => {
         output[detail.key] = detail.value;
     });
@@ -447,7 +468,7 @@ async function getDetails({ app, browser, page }) {
  * @returns {Promise<Product[]>}
  */
 async function searchReviews({ app, browser }, bar, datas) {
-    let result = [], pool = new TaskPool(app.config.maxConcurrency, app.config.lowRam ? app.App.staticConfig.DELAY_BETWEEN_TASK : 0).addTasks(datas.map((data) => async () => {
+    const result = []; const pool = new TaskPool(app.config.maxConcurrency, app.config.lowRam ? app.App.staticConfig.DELAY_BETWEEN_TASK : 0).addTasks(datas.map((data) => async () => {
         try {
             result.push({
                 ...data,
@@ -478,10 +499,10 @@ async function getReviews({ browser, app }, { data, sort = "positive" }) {
     if (app.config.maxReviews <= 0) {
         return [];
     }
-    let url = new URL(data.productsReviewLink);
+    const url = new URL(data.productsReviewLink);
     url.searchParams.set("filterByStar", sort);
-    let pageUrl = url.href, reviews = [],
-        maxTitleLength = 16, endStr = "...", txt = data.title.length > maxTitleLength ? data.title.slice(0, maxTitleLength - endStr.length) + endStr : data.title;
+    let pageUrl = url.href; const reviews = [];
+    const maxTitleLength = 16; const endStr = "..."; const txt = data.title.length > maxTitleLength ? data.title.slice(0, maxTitleLength - endStr.length) + endStr : data.title;
     await browser.page(async (page) => {
         let tried = 0;
         if (!app.config.debug) await browser.blockResources(page, config.blockedResourceTypes);
@@ -503,12 +524,12 @@ async function getReviews({ browser, app }, { data, sort = "positive" }) {
 
                 await browser.scrowDown(page);
 
-                let reviewsDiv = (await page.$$(Selector.reviews));
+                const reviewsDiv = (await page.$$(Selector.reviews));
                 if (!reviewsDiv.length) {
                     break;
                 }
-                let reviewDatas = await Promise.all(reviewsDiv.map(async (review) => {
-                    let output = {};
+                const reviewDatas = await Promise.all(reviewsDiv.map(async (review) => {
+                    const output = {};
                     await Promise.all(Object.keys(ReviewSelectors).map(async (key) => {
                         try {
                             output[key] = await browser.select(review, ReviewSelectors[key]);
@@ -523,10 +544,9 @@ async function getReviews({ browser, app }, { data, sort = "positive" }) {
                 reviews.push(...reviewDatas);
                 tried++;
 
-                let nextPageLink = await browser.try$Eval(page, { selector: Selector.nextPageButton, evaluate: (el) => el.href });
+                const nextPageLink = await browser.try$Eval(page, { selector: Selector.nextPageButton, evaluate: (el) => el.href });
                 if (!nextPageLink) break;
                 pageUrl = nextPageLink;
-
             }
         } catch (err) {
             app.Logger.error(err);

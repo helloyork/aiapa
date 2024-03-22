@@ -7,7 +7,7 @@
 
 /dist
 /build
-/bin
+/bin/*
 /test/bin
 /output
 /_bin

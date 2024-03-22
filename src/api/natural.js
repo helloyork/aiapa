@@ -1,56 +1,65 @@
-
 import Natural from "natural";
 
 const { TfIdf, SentenceTokenizer, WordTokenizer, JaroWinklerDistance } = Natural;
 
 export class TfIdfAnalyze {
-    constructor() {
+    constructor () {
         this.tfidf = new TfIdf();
         this.sentenceTokenizer = new SentenceTokenizer();
         this.wordTokenizer = new WordTokenizer();
         this.documents = [];
     }
-    addDocument(doc) {
+
+    addDocument (doc) {
         this.tfidf.addDocument(doc);
         this.documents.push(doc);
     }
-    addDocuments(docs) {
+
+    addDocuments (docs) {
         if (Array.isArray(docs)) {
             docs.forEach(doc => {
                 this.addDocument(doc);
             });
         }
     }
-    listTerms(docIndex) {
+
+    listTerms (docIndex) {
         return this.tfidf.listTerms(docIndex);
     }
-    listAllTerms() {
+
+    listAllTerms () {
         return this.documents.map((_, index) => {
             return this.tfidf.listTerms(index);
         });
     }
-    tfidfs(terms, callback) {
+
+    tfidfs (terms, callback) {
         this.tfidf.tfidfs(terms, callback);
     }
-    tokenizeSentence(sentence) {
+
+    tokenizeSentence (sentence) {
         return this.sentenceTokenizer.tokenize(sentence);
     }
-    tokenizeWord(word) {
+
+    tokenizeWord (word) {
         return this.wordTokenizer.tokenize(word);
     }
-    getSentenceTfidfScore(sentence, docIndex) {
+
+    getSentenceTfidfScore (sentence, docIndex) {
         const words = this.tokenizeWord(sentence);
-        let sentenceScore = words.reduce((acc, word) => {
+        const sentenceScore = words.reduce((acc, word) => {
             const tfidf = this.tfidf.tfidf(word, docIndex);
             return acc + tfidf;
         }, 0);
         const averageScore = sentenceScore / words.length;
         return averageScore;
     }
-    getSentenceSimilarity(sentence1, sentence2) {
+
+    getSentenceSimilarity (sentence1, sentence2) {
         return JaroWinklerDistance(sentence1, sentence2);
     }
-    getParagraphSentenceScores() {
+
+    getParagraphSentenceScores () {
         return this.documents.map((doc, docIndex) => {
             const sentences = this.tokenizeSentence(doc);
             const strongSentences = sentences.map(sentence => {
@@ -61,8 +70,9 @@ export class TfIdfAnalyze {
             return strongSentences;
         });
     }
-    filterSimilarSentences(sentences, threshold = 0.7) {
-        let uniqueSentences = [];
+
+    filterSimilarSentences (sentences, threshold = 0.7) {
+        const uniqueSentences = [];
         for (let i = 0; i < sentences.length; i++) {
             let isSimilar = false;
             for (let j = 0; j < uniqueSentences.length; j++) {
@@ -79,9 +89,6 @@ export class TfIdfAnalyze {
     }
 }
 
-
-
-
 // let time = Date.now();
 
 // const tfa = new TfIdfAnalyze();
@@ -94,8 +101,6 @@ export class TfIdfAnalyze {
 //     console.log(item.map(term => term.term).join(" "));
 //     // .sort((a, b) => a.tfidf - b.tfidf)
 // });
-
-
 
 // let sentences = [];
 // tfa.getParagraphSentenceScores().forEach((item, index) => {
@@ -112,12 +117,8 @@ export class TfIdfAnalyze {
 //     console.log(item);
 // });
 
-
-
 // tfa.listTerms(0).forEach(item => {
 //     console.log(item.term, item.tfidf);
 // });
 
 // console.log("Time taken:", (Date.now() - time) / 1000, "ms");
-
-

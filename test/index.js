@@ -18,4 +18,3 @@ import { app, Commands } from "../index.js";
 //     });
 
 app.load().run(Commands.start);
-
