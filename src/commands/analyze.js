@@ -18,7 +18,7 @@ const settings = {
 };
 
 const adapt = {
-    get (m) {
+    get(m) {
         try {
             return JSON.parse(m);
         } catch (err) {
@@ -29,7 +29,7 @@ const adapt = {
      * @param {import("../types").SummarizedProduct} data
      * @return {{critical: {[key: string]: string}[], positive: {[key: string]: string}[]}}
      */
-    summary (data) {
+    summary(data) {
         try {
             const output = {};
             ["critical", "positive"].forEach((key) => {
@@ -43,7 +43,7 @@ const adapt = {
     /**
      * @param {import("../types").SummarizedProduct} product
      */
-    productify (product) {
+    productify(product) {
         const specifications = (Object.keys(product.specifications)).filter(v => product.specifications[v].length).map((v) => `${v}: ${product.specifications[v].join(",")}`).join("\n");
         const data = `title: ${product.title}\nstars: ${product.star}\nprice: ${product.price}\nreview number: ${product.reviewNumber}\nspecifications:${specifications}\nsales:${product.sales}\nsummary: ${JSON.stringify(adapt.summary(product))}`;
         return data;
@@ -51,7 +51,7 @@ const adapt = {
 };
 
 /** @param {import("../types").App} app */
-export default async function main (app) {
+export default async function main(app) {
     if (!app.config.GEMINI_API_KEY && !app.config.apiKey.length) {
         app.Logger.warn(`You don't have an api key yet, Get your API key from ${app.UI.hex(app.UI.Colors.Blue)(GenerativeAI.GET_API_KEY)}`);
         app.exit(app.App.exitCode.OK);
@@ -99,12 +99,12 @@ export default async function main (app) {
     }
 }
 
-export function getConfig () {
+export function getConfig() {
     return settings;
 }
 
 /** @param {{app: import("../types").App}} app */
-async function chooseFile ({ app }) {
+async function chooseFile({ app }) {
     let file = app.config.file;
     if (!file) {
         const otherPromt = "OTHER (select file).";
@@ -137,7 +137,7 @@ async function chooseFile ({ app }) {
  * @param {import("../types").ConcludedProduct[]} datas
  * @returns {import("../types").RenderableData}
  */
-function getRenderable (datas) {
+function getRenderable(datas) {
     return {
         products: datas.map((v) => {
             const hrefU = new URL(v.href); const stars = Math.ceil(parseInt(v.star));
@@ -167,7 +167,7 @@ function getRenderable (datas) {
  * @param {import("../types").ConcludedProduct[]} datas
  * @returns {Promise<string>}
  */
-async function saveRenderable ({ app }, datas) {
+async function saveRenderable({ app }, datas) {
     const out = getRenderable(datas);
     const result = renderTemplate({ app }, settings.templateName, out);
     const file = resolve(app.config.output, `result-${formatDate(new Date())}-${path.basename(app.config.file)}.html`);
@@ -176,13 +176,13 @@ async function saveRenderable ({ app }, datas) {
     return _path;
 }
 
-function getSortedSentences (sentences, max = settings.MAX_REVIEW_PER_PRODUCT) {
+function getSortedSentences(sentences, max = settings.MAX_REVIEW_PER_PRODUCT) {
     const tfidf = new TfIdfAnalyze();
     tfidf.addDocuments(sentences);
     return tfidf.getParagraphSentenceScores().map((item) => item.sort((a, b) => b.score - a.score).slice(0, max).map(v => v.sentence));
 }
 
-function insertPrompt (prompts, data) {
+function insertPrompt(prompts, data) {
     let res = prompts[0];
     for (let i = 0; i < data.length; i++) {
         res += (data[i] || "") + (prompts[i + 1] || "");
@@ -190,7 +190,7 @@ function insertPrompt (prompts, data) {
     return res;
 }
 
-function splitArray (arr, size) {
+function splitArray(arr, size) {
     const res = [];
     for (let i = 0; i < arr.length; i += size) {
         res.push(arr.slice(i, i + size));
@@ -203,7 +203,7 @@ function splitArray (arr, size) {
  * @param {import("../types").SummarizedProduct} product
  * @returns {Promise<string>}
  */
-async function concludeProduct ({ ai }, product) {
+async function concludeProduct({ ai }, product) {
     const result = await ai.getAPIRotated().call(insertPrompt(settings.prompts2, [adapt.productify(product)]));
     return result;
 }
@@ -213,7 +213,7 @@ async function concludeProduct ({ ai }, product) {
  * @param {import("../types").SummarizedProduct[]} data
  * @returns {Promise<import("../types").ConcludedProduct[]>}
  */
-async function summarize ({ app, ai }, data) {
+async function summarize({ app, ai }, data) {
     const reviews = [];
     await Promise.all(data.map(async (product) => {
         const res = await summarizeProduct({ app, ai }, product);
@@ -230,12 +230,12 @@ async function summarize ({ app, ai }, data) {
  * @param {"critical"|"benefits"} side
  * @returns {Promise<import("../types").Summary[]>}
  */
-async function callSummarize ({ app, ai }, reviews, side) {
+async function callSummarize({ app, ai }, reviews, side) {
     const sentences = getSortedSentences(reviews);
     const prompts = splitArray(sentences, settings.MAX_PROMPT_LINES).map((v) => insertPrompt(settings.prompts, [side, v.join("\n"), side]));
     const results = [];
     const taskPool = new TaskPool(app.config.maxConcurrency, app.App.staticConfig.DELAY_BETWEEN_TASK).addTasks(
-        prompts.map((v) => async function run (tried = 0) {
+        prompts.map((v) => async function run(tried = 0) {
             try {
                 const result = await ai.getAPIRotated().call(v);
                 const parsed = adapt.get(result);
@@ -262,7 +262,7 @@ async function callSummarize ({ app, ai }, reviews, side) {
  * @param {import("../types").Product} product
  * @returns {Promise<import("../types").SummarizedProduct>}
  */
-async function summarizeProduct ({ app, ai }, product) {
+async function summarizeProduct({ app, ai }, product) {
     const critical = product.reviews?.critical?.map(v => v.content); const positive = product.reviews?.positive?.map(v => v.content); const maxLength = 40;
     const head = `${product.title.substring(0, maxLength) + (product.title.length > maxLength ? "..." : "")}`;
     app.Logger.info(`Summarizing ${head}`);

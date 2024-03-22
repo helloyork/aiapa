@@ -10,6 +10,22 @@
   },
   "author": "helloyork@icloud.com",
   "license": "MIT",
+  "keywords": [
+    "ai",
+    "amazon",
+    "product",
+    "analyze",
+    "web scraping",
+    "puppeteer",
+    "data scraping",
+    "amazon scraping",
+    "product scraping",
+    "product analysis",
+    "amazon analysis",
+    "ai analysis",
+    "scraping tool",
+    "data analysis"
+  ],
   "type": "module",
   "types": "./src/types/index.d.ts",
   "devDependencies": {

@@ -1,4 +1,5 @@
 import { saveFile } from "../api/dat.js";
+import { GenerativeAI } from "../api/generative.js";
 
 const CommandRequiredConfig = {
     get: ["maxTask", "maxReviews"],
@@ -6,7 +7,7 @@ const CommandRequiredConfig = {
 };
 
 /** @param {import("../types").App} app */
-export default async function main (app) {
+export default async function main(app) {
     if (app.isImported && !app.config.force) {
         app.Logger.warn("Do not start this command from code, and include the --force parameter if you think this is a bug.");
     }
@@ -24,13 +25,14 @@ export default async function main (app) {
         app.Logger.info("getting the product information from Amazon");
 
         await completeConfig(app, "get");
-        app.once(app.App.Events.beforeCommandRun, (_, /** @type {typeof import("./get")} */mod) => {
-            mod.getConfig().skipSave = true;
-            mod.events.once(mod.EventTypes.AFTER_COMMAND_RUN, (_, path) => {
-                mod.getConfig().skipSave = false;
-                file = path;
-            });
+        let module_get = await app.getModule(app.App.Commands.get);
+        module_get.getConfig().skipSave = true;
+        module_get.events.once(module_get.EventTypes.AFTER_COMMAND_RUN, (_, path) => {
+            module_get.getConfig().skipSave = false;
+            file = path;
         });
+
+        app.Logger.tagless("\n");
 
         await app.run(app.App.Commands.get);
     }
@@ -46,6 +48,10 @@ export default async function main (app) {
         });
     }
 
+    app.Logger.tagless("\n")
+        .info("AIAPA need gemini apikey to analyze product")
+        .info(`If you don't have one, please go to ${app.UI.hex(app.UI.Colors.Blue)(GenerativeAI.GET_API_KEY)} and get one`)
+        .info("it is free and easy to get");
     const set = await completeConfig(app, "analyze");
     app.setUserConfig({
         apiKey: [app.userConfig.apiKey]
@@ -55,10 +61,9 @@ export default async function main (app) {
     }
 
     if (file) {
-        app.once(app.App.Events.beforeCommandRun, (_, mod) => {
-            mod.getConfig().file = file;
-            mod.getConfig().skipFileChoose = true;
-        });
+        let module_analyze = await app.getModule(app.App.Commands.analyze);
+        module_analyze.getConfig().file = file;
+        module_analyze.getConfig().skipFileChoose = true;
     }
     await app.run(app.App.Commands.analyze);
 
@@ -69,10 +74,9 @@ export default async function main (app) {
  * @param {import("../types").App} app
  * @param {string} command
  */
-async function completeConfig (app, command) {
+async function completeConfig(app, command) {
     const required = CommandRequiredConfig[command]; const config = {};
     if (!required || !required.length) return false;
-    app.Logger.info("please enter the config, leave it empty to use the default value");
     for (const key of required) {
         const v = await app.UI.input(`Enter ${key} (${app.App.Options[key].description}):`);
         if (v) config[key] = v;

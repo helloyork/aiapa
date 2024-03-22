@@ -14,9 +14,12 @@ const { program, Option } = commander;
 
 class App {
     /* Static */
+    static scriptCache = {};
     static async loadScript(scriptPath) {
+        if (this.scriptCache[scriptPath]) return this.scriptCache[scriptPath];
         app.Logger.verbose("Loading dynamic script: " + this.getFilePath(scriptPath));
         const module = await import(url.pathToFileURL(this.getFilePath(scriptPath)));
+        this.scriptCache[scriptPath] = module;
         return module;
     }
 
@@ -131,6 +134,10 @@ class App {
             return parent[key];
         }
         return parent;
+    }
+
+    async getModule(cmd) {
+        return await App.loadScript(cmd.scriptPath); 
     }
 
     async run(cmd) {

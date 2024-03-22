@@ -6,15 +6,16 @@ AIAPA is a Gemini-driven Amazon product analysis tool currently in the developme
 
 The main function:  
 Use the get command to obtain product data
-Use the analyze command to summarize the advantages and disadvantages of the product
+Use the analyze command to summarize the advantages and disadvantages of the product  
+generate product report
 
 ## Instruction
 
 ### Quick Start
 
 1. Install [nodejs](https://nodejs.org/en/download/)  
-2. type in `npm install aiapa -g` in terminal  
-3. Go to [Google AI Studio](https://makersuite.google.com/app/apikey) and get an API Key  
+2. Go to [Google AI Studio](https://makersuite.google.com/app/apikey) and get an API Key  
+3. type in `npm install aiapa -g` in terminal  
 4. type `aiapa start` and enjoy :)  
 
 
@@ -93,17 +94,21 @@ app.setUserConfig({
 
 ## Update
 
-### 2024/3/20
+### 2024/3/21
 
 This update added the following features:
 
 1. start command  
-2. auto generate html as result
+2. auto generate html as result  
+3. add command bin open, this will open the bin dir in your ui (only macos and windows)
 
 Changed the following features:
 
 1. fix many problems  
-2. support linux and macos
+2. support linux and macos  
+3. better csv  
+4. open file by selecting from ui or typing  
+5. better bin command and bin dir permission check
 
 ### 2024/3/15
 
@@ -111,7 +116,6 @@ This update added the following features:
 
 1. analyze command
 2. Support the use of apikey pool
-
 
 ### 2024/3/5
 

@@ -2,7 +2,7 @@
 
 import { Browser } from "../api/puppeteer.js";
 import { TaskPool, randomInt, createProgressBar, createMultiProgressBar, sleep, isValidUrl, EventEmitter } from "../utils.js";
-import { loadFile, saveFile, joinPath, saveCSV, splitByNewLine, formatDate, checkDirPermission } from "../api/dat.js";
+import { loadFile, saveFile, joinPath, saveCSV, splitByNewLine, formatDate, checkDirPermission, CSVstringify } from "../api/dat.js";
 import { Server } from "../api/server.js";
 
 /**
@@ -154,7 +154,7 @@ const ReviewSelectors = {
  * @param {string} key
  * @param {ElementSelector} selector
  */
-export function registerDetailSelector (key, selector) {
+export function registerDetailSelector(key, selector) {
     Details[key] = selector;
 }
 
@@ -171,7 +171,7 @@ export function registerDetailSelector (key, selector) {
  * @param {string} key
  * @param {function(Element|Object.<string, Element|Element[]>): any} evaluate
  */
-export function registerEvaluation (key, evaluate) {
+export function registerEvaluation(key, evaluate) {
     Details[key].evaluate = evaluate;
 }
 
@@ -185,23 +185,23 @@ export function registerEvaluation (key, evaluate) {
  * @param {string[]|string} proxy
  * @returns {string[]}
  */
-export function registerProxy (proxy) {
+export function registerProxy(proxy) {
     if (Array.isArray(proxy)) config.proxies.push(...proxy);
     else config.proxies.push(proxy);
     return [...config.proxies];
 }
 
-export function registerBlockedResourceTypes (types) {
+export function registerBlockedResourceTypes(types) {
     config.blockedResourceTypes.push(...types);
     return [...config.blockedResourceTypes];
 }
 
-export function getConfig () {
+export function getConfig() {
     return config;
 }
 
 /** @param {import("../types").App} app */
-export default async function main (app) {
+export default async function main(app) {
     events.emit(EventTypes.BEFORE_COMMAND_RUN, app);
     app.config.debug && app.Logger.debug("Debug mode enabled, Image will be loaded");
 
@@ -253,21 +253,21 @@ export default async function main (app) {
     return result;
 }
 
-function setupBrowser (app, server) {
+function setupBrowser(app, server) {
     const browser = new Browser(app, { args: [...(app.config.proxy ? [`--proxy-server=${"http://localhost:" + server.port}`] : [])] })
         .setAllowRecycle(true).setMaxFreePages(app.config.maxConcurrency < 10 ? 10 : app.config.maxConcurrency);
     browser.usePlugin(Browser.Plugins.StealthPlugin());
     return browser;
 }
 
-function setupServer (app, server, config) {
+function setupServer(app, server, config) {
     if (app.config.proxy) {
         if (config.proxies.length > 0) server.addProxis(config.proxies);
         server.init(8080);
     }
 }
 
-function setupBrowserEvents (app, browser, UAs) {
+function setupBrowserEvents(app, browser, UAs) {
     browser.onBeforePage(async (page) => {
         await page.setUserAgent(UAs[randomInt(0, UAs.length - 1)]);
     }).onDisconnect(() => {
@@ -276,48 +276,71 @@ function setupBrowserEvents (app, browser, UAs) {
     });
 }
 
-async function saveResults (app, result, time) {
+async function saveResults(app, result, time) {
     const options = getSaveOptions(app, time);
     const res = await app.UI.select("Save files to: ", Object.keys(options));
     if (res) return await options[res](result);
 }
 
-function getSaveOptions (app, time) {
+function getSaveOptions(app, time) {
     return {
         "save as .json": async function (res) {
             return await saveFile(getPath(app, time, ".json"), JSON.stringify(res));
         },
         "save as .csv": async function (res) {
-            return await saveCSV(app.config.output, getPath(app, time, ".csv"), formatOutput(res));
+            return await saveFile(getPath(app, time, ".csv"), CSVstringify(formatOutput(res)));
+            // return await saveCSV(app.config.output, getPath(app, time, ".csv"), formatOutput(res));
         },
         "log to console": (res) => app.Logger.log(JSON.stringify(res)),
         none: () => { }
     };
 }
 
-function getPath (app, time, ext) {
+function getPath(app, time, ext) {
     const title = getTitle(app);
     return joinPath(app.config.output, `${title}-result-${time}${ext}`);
 }
 
-function getTitle (app) {
+function getTitle(app) {
     if (isValidUrl(app.config.query) && new URL(app.config.query).hostname === new URL(AMAZON_SEARCH_URL).hostname) {
         return new URL(app.config.query).pathname.split("/").filter(Boolean)[0];
     }
     return app.config.query;
 }
 
-function formatOutput (res) {
-    return res.map(r => {
-        const o = {};
-        Object.entries(r).forEach(([key, value]) => {
-            o[key] = typeof value === "string" ? value : JSON.stringify(value);
+/**@param {import("../types").Product[]} res */
+function formatOutput(res) {
+    let output = [];
+    res.map(r => {
+        output.push({
+            href: r.href,
+            title: r.title,
+            price: r.price,
+            sales: r.sales,
+            star: r.star,
+            reviewNumber: r.reviewNumber,
+            productsReviewLink: r.productsReviewLink,
+            review: ""
         });
-        return o;
+        ["positive", "critical"].map(type => {
+            r.reviews[type].map(review => {
+                output.push({
+                    href: "",
+                    title: "",
+                    price: "",
+                    sales: "",
+                    star: "",
+                    reviewNumber: "",
+                    productsReviewLink: "",
+                    review: `${review.title}\nrate: ${review.rating}\n(${review.date})\n${review.content}`
+                });
+            });
+        });
     });
+    return output;
 }
 
-async function getProductLinks ({ app, browser, page, search }) {
+async function getProductLinks({ app, browser, page, search }) {
     const url = new URL(AMAZON_SEARCH_URL);
     url.searchParams.append("k", search);
     url.searchParams.append("s", "exact-aware-popularity-rank");
@@ -354,7 +377,7 @@ async function getProductLinks ({ app, browser, page, search }) {
  * @param {{browser: Browser, app: import("../cli.js").App, page: import("puppeteer").Page, search: string}} arg0
  * @returns {Promise<Product[]>}
  */
-async function search ({ app, browser, page, search }) {
+async function search({ app, browser, page, search }) {
     if (!app.config.debug) await browser.blockResources(page, config.blockedResourceTypes);
     if (!search && !search.length) {
         const res = await app.UI.input("Pleae type in query to search for (or a product link):");
@@ -403,7 +426,7 @@ async function search ({ app, browser, page, search }) {
         format: "{bar} | {title} | {value}/{total}"
     });
     const result = await searchReviews({ app, browser, page, search }, bar, products);
-        const reviewNumber = result.reduce((acc, cur) => acc + Object.values(cur.reviews).map(v => v.length).reduce((a, b) => a + b, 0), 0);
+    const reviewNumber = result.reduce((acc, cur) => acc + Object.values(cur.reviews).map(v => v.length).reduce((a, b) => a + b, 0), 0);
     app.Logger.log(`Got ${reviewNumber} reviews`);
     bar.stop();
 
@@ -415,7 +438,7 @@ async function search ({ app, browser, page, search }) {
  * @param {import("cli-progress").SingleBar} bar
  * @returns {Promise<ProductDetails>}
  */
-async function getDetails ({ app, browser, page }) {
+async function getDetails({ app, browser, page }) {
     const details = await Promise.all(Object.keys(Details).map(async (key) => {
         try {
             return {
@@ -444,7 +467,7 @@ async function getDetails ({ app, browser, page }) {
  * @param {ProductDetails[]} datas
  * @returns {Promise<Product[]>}
  */
-async function searchReviews ({ app, browser }, bar, datas) {
+async function searchReviews({ app, browser }, bar, datas) {
     const result = []; const pool = new TaskPool(app.config.maxConcurrency, app.config.lowRam ? app.App.staticConfig.DELAY_BETWEEN_TASK : 0).addTasks(datas.map((data) => async () => {
         try {
             result.push({
@@ -468,7 +491,7 @@ async function searchReviews ({ app, browser }, bar, datas) {
  * @param {{bar: import("cli-progress").MultiBar, data: ProductDetails, sort: "positive"|"critical"}} arg1
  * @returns {Promise<Review[]>}
  */
-async function getReviews ({ browser, app }, { data, sort = "positive" }) {
+async function getReviews({ browser, app }, { data, sort = "positive" }) {
     if (app.config.maxReviews > 10) {
         app.Logger.warn("Can't get more than 10 pages of reviews, setting to 10");
         app.config.maxReviews = 10;
@@ -479,7 +502,7 @@ async function getReviews ({ browser, app }, { data, sort = "positive" }) {
     const url = new URL(data.productsReviewLink);
     url.searchParams.set("filterByStar", sort);
     let pageUrl = url.href; const reviews = [];
-        const maxTitleLength = 16; const endStr = "..."; const txt = data.title.length > maxTitleLength ? data.title.slice(0, maxTitleLength - endStr.length) + endStr : data.title;
+    const maxTitleLength = 16; const endStr = "..."; const txt = data.title.length > maxTitleLength ? data.title.slice(0, maxTitleLength - endStr.length) + endStr : data.title;
     await browser.page(async (page) => {
         let tried = 0;
         if (!app.config.debug) await browser.blockResources(page, config.blockedResourceTypes);

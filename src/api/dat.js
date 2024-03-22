@@ -147,6 +147,7 @@ export async function readJSON(filePath) {
 }
 
 /**
+ * @deprecated
  * @param {absolutePath} filePath
  * @param {string} name
  * @param {readonly any[] | Readonly<any>} data
@@ -157,6 +158,10 @@ export async function saveCSV(filePath, name, data, options = {}) {
     const savePath = path.join(process.cwd(), filePath, `${name}.csv`); const csv = new Parser(options).parse(data);
     await saveFile(savePath, csv);
     return savePath;
+}
+
+export function CSVstringify(data, options = {}) {
+    return new Parser(options).parse(data);
 }
 
 export async function appendFile(filePath, data, encoding = "utf-8") {

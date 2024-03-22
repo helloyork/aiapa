@@ -6,6 +6,7 @@ export declare type Commands = {
     get: CommandDefinition;
     analyze: CommandDefinition;
     bin: CommandDefinition;
+    start: CommandDefinition;
 }
 
 export { Options }
