@@ -160,7 +160,7 @@ function getRenderable(datas) {
                 }), ...(Object.keys(v.attr || {})).map((key) => {
                     return {
                         name: key,
-                        value: v.specifications[key].join(", ")
+                        value: v.attr[key]
                     };
                 })]
             };
