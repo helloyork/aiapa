@@ -27,14 +27,22 @@
                         <a href="{{ this.href }}" target="_blank">product page on Amazon</a>
                         <p>{{ this.stars }}</p>
                         <p>reviews: {{ this.reviewNumber }}</p>
-                        <br/>
+                        <br />
                         <div id="description{{@index}}"></div>
                         <script>
                             var converter = new showdown.Converter(),
-                                text      = `{{this.description}}`,
-                                html      = converter.makeHtml(text);
-                            document.getElementById('description{{@index}}').innerHTML = html;
+                                text = `{{this.description}}`,
+                                html = converter.makeHtml(text);
+                            document.getElementById('description{{@index}}').innerHTML = "<h3>Summary</h3>"+html;
                         </script>
+                        <div id="feature{{@index}}">
+                            <h3>Features</h3>
+                            <ul>
+                                {{#each this.feature}}
+                                <li>{{this}}</li>
+                                {{/each}}
+                            </ul>
+                        </div>
                         <table class="table">
                             <thead>
                                 <tr>

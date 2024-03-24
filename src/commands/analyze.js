@@ -149,6 +149,7 @@ function getRenderable(datas) {
                 sales: v.sales,
                 description: v.conclusion,
                 price: v.price,
+                feature: v.feature,
                 attributes: [{
                     name: "review link",
                     value: v.productsReviewLink

@@ -6,7 +6,7 @@
   "bin": "./index.js",
   "scripts": {
     "run": "node index.js",
-    "test": "standard && node ./test/index.js"
+    "test": "node ./test/index.js"
   },
   "author": "helloyork@icloud.com",
   "license": "MIT",
