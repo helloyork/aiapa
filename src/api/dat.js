@@ -172,6 +172,13 @@ export async function deleteFile(filePath) {
     return await fs.unlink(path.resolve(process.cwd(), filePath));
 }
 
+export function msToTime(ms) {
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+
+    return `${minutes? minutes + "m ": ""}${seconds % 60}s`;
+}
+
 export async function fileExists(filePath) {
     try {
         await fs.access(path.resolve(process.cwd(), filePath));
