@@ -108,7 +108,7 @@ async function chooseFile({ app }) {
     let file = app.config.file;
     if (!file) {
         const otherPromt = "OTHER (select file).";
-        await createDirIfNotExists(app.config.binPath);
+        await createDirIfNotExists(app.App.getFilePath(app.config.binPath));
         const files = await getFilesToObj(app.App.getFilePath(app.config.binPath));
         const quetions = [...Object.keys(files).filter(v => v.endsWith(".json")), app.UI.separator(), otherPromt, app.UI.separator()];
         const res = await app.UI.select("select a file as input", quetions);

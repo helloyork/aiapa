@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- *
+ * @fixme why i cannot load conversation from json
  * @todo maybe rewrite these command as class?
  */
 

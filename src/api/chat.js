@@ -2,16 +2,16 @@
 import readline from 'readline';
 
 class Message {
-    constructor({ user, text }) {
+    constructor({ user, content }) {
         this.user = user;
-        this.text = text;
+        this.content = content;
         this.id = 0;
     }
-    getText() {
-        return this.text;
+    getContent() {
+        return this.content;
     }
-    setText(text) {
-        this.text = text;
+    setContent(content) {
+        this.content = content;
         return this;
     }
     getUser() {
@@ -32,9 +32,10 @@ export class ChatApp {
     /**@param {import("../types").App} app */
     constructor(app) {
         this.app = app;
+        /**@type {Message[]} */
         this.history = [];
     }
-    /**@param {{user: string, text: string}} message */
+    /**@param {import("../types").Message} message */
     addHistory(message) {
         let m = new Message(message).setId(this.id++);
         this.history.push(m);
@@ -42,14 +43,19 @@ export class ChatApp {
     }
     log(){
         this.history.forEach(m => {
-            console.log(m.getUser() + ": " + m.getText());
+            console.log(m.getUser() + ": " + m.getContent());
             console.log("\n");
         });
     }
     refresh() {
+        console.clear();
         readline.cursorTo(process.stdout, 0, 0);
         readline.clearScreenDown(process.stdout);
         this.log();
+    }
+    /**@returns {import("../types").Message[]} */
+    toData() {
+        return this.history.map(m => ({ user: m.getUser(), content: m.getContent() }));
     }
 }
 

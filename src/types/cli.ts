@@ -28,6 +28,8 @@ interface AppConfig {
     output: absolutePath;
     binPath: relativePath;
     model: string;
+    chatHistoryDir: relativePath;
+    chatHistory: string,
     absolutePath: absolutePath;
     relativePath: relativePath;
     maxTask: number;

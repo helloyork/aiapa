@@ -146,5 +146,11 @@ export const Commands = {
         description: "AIAPA wizard",
         scriptPath: Scripts.start,
         options: [Options.force, Options.debug, Options.verbose]
+    },
+    chat: {
+        name: "chat",
+        description: "Chat with the AI",
+        scriptPath: "./commands/chat.js",
+        options: [Options.force, Options.debug, Options.verbose]
     }
 };

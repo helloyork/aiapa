@@ -138,20 +138,37 @@ class Model {
 }
 
 export class Chat {
+    static defaultConfig = {
+        name: "chat",
+        id: 0
+    };
     /**
      * @param {import("../types").App} app 
      * @param {Model} model 
+     * @param {import("./chat.js").ChatApp} chatApp
      */
-    constructor(app, model) {
+    constructor(app, model, chatApp, config = {}) {
         this.app = app;
         this.model = model;
+        this.chatApp = chatApp;
         this.chat = null;
+        this.history = [];
+        this.config = {...Chat.defaultConfig, ...config};
     }
 
-    start(history = []) {
-        this.history = history;
+    /**
+     * @param {import("../types").Chat} conversation 
+     */
+    start(conversation = {}) {
+        /**@type {import("../types").Message[]} */
+        this.conversation = conversation;
+        /**@type {import("../types").Chat} */
+        this.history = conversation.history || [];
+        this.history.forEach(m => {
+            this.chatApp.addHistory(m);
+        });
         this.chat = this.model.api.startChat({
-            history,
+            history: this.history.map(v=>({role: v.user, parts: v.content})),
             generationConfig: this.model.getGenerationConfig()
         });
     }
@@ -159,20 +176,36 @@ export class Chat {
     async send(message) {
         let result = await this.chat.sendMessage(message);
         let response = result.response.text();
+
+        this.chatApp.addHistory({ user: "user", content: message });
+        this.chatApp.addHistory({ user: "assistant", content: response });
+
         return response;
     }
 
     async sendStream(message, f) {
         const result = await this.chat.sendMessageStream(message);
 
+        this.chatApp.addHistory({ user: "user", content: message });
+        let msg = this.chatApp.addHistory({ user: "assistant", content: "" });
+
         let texts = [];
         for await (const chunk of result.stream) {
             let text = chunk.text();
             texts.push(text);
+            msg.setContent(msg.getContent() + text);
             f(text);
         }
 
         return texts.join("");
+    }
+
+    toData() {
+        return {
+            name: this.config.name,
+            id: this.config.id,
+            history: this.chatApp.toData()
+        };
     }
 }
 
