@@ -130,7 +130,7 @@ async function chooseFile({ app }) {
  * @param {import("../types").ConcludedProduct[]} datas
  * @returns {import("../types").RenderableData}
  */
-function getRenderable(datas) {
+export function getRenderable(datas) {
     return {
         products: datas.map((v) => {
             const hrefU = new URL(v.href); const stars = Math.ceil(parseInt(v.star));

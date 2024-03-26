@@ -1,5 +1,6 @@
 
-import readline from 'readline';
+import readline from "readline";
+import { Chat } from "./generative.js";
 
 class Message {
     constructor({ user, content }) {
@@ -43,8 +44,11 @@ export class ChatApp {
     }
     log(){
         this.history.forEach(m => {
-            console.log(m.getUser() + ": " + m.getContent());
-            console.log("\n");
+            this.app.Logger.tagless(this.app.UI.hex(this.app.UI.Colors.Gray)(m.getUser() + ": ") + this.app.UI.hex(({
+                [Chat.Role.USER]: this.app.UI.Colors.Gray,
+                [Chat.Role.MODEL]: this.app.UI.Colors.White
+            })[m.getUser()])(m.getContent()));
+            if(m.getUser() === Chat.Role.MODEL) this.app.Logger.tagless("---\n");
         });
     }
     refresh() {

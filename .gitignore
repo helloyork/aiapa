@@ -7,8 +7,9 @@
 
 /dist
 /build
-/bin/*
+/bin
 /test/bin
+/aiapa_chat
 /output
 /_bin
 

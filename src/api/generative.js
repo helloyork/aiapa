@@ -140,7 +140,12 @@ class Model {
 export class Chat {
     static defaultConfig = {
         name: "chat",
-        id: 0
+        id: 0,
+        deleted: false
+    };
+    static Role = {
+        USER: "user",
+        MODEL: "model"
     };
     /**
      * @param {import("../types").App} app 
@@ -160,9 +165,9 @@ export class Chat {
      * @param {import("../types").Chat} conversation 
      */
     start(conversation = {}) {
-        /**@type {import("../types").Message[]} */
-        this.conversation = conversation;
         /**@type {import("../types").Chat} */
+        this.conversation = conversation;
+        /**@type {import("../types").Message[]} */
         this.history = conversation.history || [];
         this.history.forEach(m => {
             this.chatApp.addHistory(m);
@@ -177,17 +182,23 @@ export class Chat {
         let result = await this.chat.sendMessage(message);
         let response = result.response.text();
 
-        this.chatApp.addHistory({ user: "user", content: message });
-        this.chatApp.addHistory({ user: "assistant", content: response });
+        this.chatApp.addHistory({ user: Chat.Role.USER, content: message });
+        this.chatApp.addHistory({ user: Chat.Role.MODEL, content: response });
 
+        this.history = this.chatApp.toData();
+        
         return response;
     }
 
     async sendStream(message, f) {
+        if(!message || !message.length) return null;
+
+        this.chatApp.addHistory({ user: Chat.Role.USER, content: message });
+        this.chatApp.refresh();
+
         const result = await this.chat.sendMessageStream(message);
 
-        this.chatApp.addHistory({ user: "user", content: message });
-        let msg = this.chatApp.addHistory({ user: "assistant", content: "" });
+        let msg = this.chatApp.addHistory({ user: Chat.Role.MODEL, content: "" });
 
         let texts = [];
         for await (const chunk of result.stream) {
@@ -197,7 +208,13 @@ export class Chat {
             f(text);
         }
 
+        this.history = this.chatApp.toData();
+
         return texts.join("");
+    }
+
+    getHistory() {
+        return this.history;
     }
 
     toData() {
