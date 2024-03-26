@@ -52,6 +52,8 @@ class App {
         binPath: isMacosOrLinux() ? joinPath(getHomeDir(), "./.bin/aiapa/") : "../bin",
         output: "",
         model: "gemini-pro",
+        chatHistoryDir: isMacosOrLinux() ? joinPath(getHomeDir(), "./.bin/aiapa_chat") : "../aiapa_chat",
+        chatHistory: "chat_history.json",
         maxTask: 10,
         maxReviews: 10,
         maxConcurrency: 5,

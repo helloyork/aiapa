@@ -87,6 +87,7 @@ export async function select(message, choices) {
  * @param {Object} choiceObj - The list of choices.
  * @param {any[]} args - The arguments to pass to the selected function.
  * @returns {Promise<any>} The result of the selected function.
+ * @example selectByObject("Select a color", { "Red": Colors.Red, "Green": Colors.Green });
  */
 export async function selectByObject(message, choiceObj) {
     const { answer } = await inquirer.prompt({

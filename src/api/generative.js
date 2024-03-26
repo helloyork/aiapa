@@ -37,7 +37,7 @@ class Model {
      * @param {GenerativeAI} generativeAI
      * @param {{model: string, models: ModelConfig[], apikey: string}} modelConfig
      */
-    constructor (app, generativeAI, modelConfig) {
+    constructor(app, generativeAI, modelConfig) {
         this.app = app;
         this.generativeAI = generativeAI;
         this.modelConfig = modelConfig;
@@ -51,11 +51,11 @@ class Model {
         });
     }
 
-    getModelConfig () {
+    getModelConfig() {
         return this.modelConfig.models[this.modelConfig.model];
     }
 
-    async generateContent (prompts) {
+    async generateContent(prompts) {
         return await this.api.generateContent(prompts);
     }
 
@@ -64,7 +64,7 @@ class Model {
      * @param {MIME} mimeType
      * @returns {Promise<{inlineData: {data: string, mimeType: string}}>}
      */
-    async imgToBase64 (path, mimeType) {
+    async imgToBase64(path, mimeType) {
         return {
             inlineData: {
                 data: Buffer.from(await loadFile(path)).toString("base64"),
@@ -73,13 +73,13 @@ class Model {
         };
     }
 
-    async imgsToBase64 (imgs) {
+    async imgsToBase64(imgs) {
         return await Promise.all(imgs.map(async (img) => {
             return await this.imgToBase64(img);
         }));
     }
 
-    async countTokens (text) {
+    async countTokens(text) {
         return await this.api.countTokens(text);
     }
 
@@ -87,7 +87,7 @@ class Model {
      * @param {string | import("@google/generative-ai").GenerateContentRequest | (string | import("@google/generative-ai").Part)[]} prompts
      * @returns {Promise<string|Rejected>}
      */
-    async call (prompts) {
+    async call(prompts) {
         return await this.tryExecute(async () => {
             return await (this.generativeAI.rpm.createTask(async () => {
                 const result = await this.generateContent(prompts);
@@ -97,7 +97,7 @@ class Model {
         });
     }
 
-    async tryExecute (f, whenError = () => { }) {
+    async tryExecute(f, whenError = () => { }) {
         try {
             return await f();
         } catch (err) {
@@ -108,7 +108,7 @@ class Model {
         }
     }
 
-    getSafetySettings () {
+    getSafetySettings() {
         return [
             {
                 category: HarmCategory.HARM_CATEGORY_HARASSMENT,
@@ -129,9 +129,99 @@ class Model {
         ];
     }
 
-    getGenerationConfig () {
+    getGenerationConfig() {
         return {
-            temperature: 0.7
+            temperature: 0.7,
+            maxOutputTokens: this.getModelConfig().outputTokenLimit,
+        };
+    }
+}
+
+export class Chat {
+    static defaultConfig = {
+        name: "chat",
+        id: 0,
+        deleted: false
+    };
+    static Role = {
+        USER: "user",
+        MODEL: "model"
+    };
+    /**
+     * @param {import("../types").App} app 
+     * @param {Model} model 
+     * @param {import("./chat.js").ChatApp} chatApp
+     */
+    constructor(app, model, chatApp, config = {}) {
+        this.app = app;
+        this.model = model;
+        this.chatApp = chatApp;
+        this.chat = null;
+        this.history = [];
+        this.config = {...Chat.defaultConfig, ...config};
+    }
+
+    /**
+     * @param {import("../types").Chat} conversation 
+     */
+    start(conversation = {}) {
+        /**@type {import("../types").Chat} */
+        this.conversation = conversation;
+        /**@type {import("../types").Message[]} */
+        this.history = conversation.history || [];
+        this.history.forEach(m => {
+            this.chatApp.addHistory(m);
+        });
+        this.chat = this.model.api.startChat({
+            history: this.history.map(v=>({role: v.user, parts: v.content})),
+            generationConfig: this.model.getGenerationConfig()
+        });
+    }
+
+    async send(message) {
+        let result = await this.chat.sendMessage(message);
+        let response = result.response.text();
+
+        this.chatApp.addHistory({ user: Chat.Role.USER, content: message });
+        this.chatApp.addHistory({ user: Chat.Role.MODEL, content: response });
+
+        this.history = this.chatApp.toData();
+        
+        return response;
+    }
+
+    async sendStream(message, f) {
+        if(!message || !message.length) return null;
+
+        this.chatApp.addHistory({ user: Chat.Role.USER, content: message });
+        this.chatApp.refresh();
+
+        const result = await this.chat.sendMessageStream(message);
+
+        let msg = this.chatApp.addHistory({ user: Chat.Role.MODEL, content: "" });
+
+        let texts = [];
+        for await (const chunk of result.stream) {
+            let text = chunk.text();
+            texts.push(text);
+            msg.setContent(msg.getContent() + text);
+            f(text);
+        }
+
+        this.history = this.chatApp.toData();
+
+        return texts.join("");
+    }
+
+    getHistory() {
+        return this.history;
+    }
+
+    toData() {
+        return {
+            name: this.config.name,
+            id: this.config.id,
+            history: this.chatApp.toData()
         };
     }
 }
@@ -146,7 +236,7 @@ export class GenerativeAI {
     /** @type {Model} */
     api = null;
     /** @returns {Model} */
-    getModelConfig () {
+    getModelConfig() {
         return this.models[this.app.config.model];
     }
 
@@ -154,7 +244,7 @@ export class GenerativeAI {
      * @constructor
      * @param {App} app
      */
-    constructor (app, aiConfig = {}) {
+    constructor(app, aiConfig = {}) {
         this.app = app;
         this.running = true;
         this.aiConfig = { ...GenerativeAI.defaultAiConfig, ...aiConfig };
@@ -167,15 +257,15 @@ export class GenerativeAI {
         this.init();
     }
 
-    getAPI () {
+    getAPI() {
         return this.api;
     }
 
-    getAPIRotated () {
+    getAPIRotated() {
         return this.rotatePool().getAPI();
     }
 
-    rotatePool () {
+    rotatePool() {
         if (this.api) this._pool.push(this.api);
         this.api = this._pool.shift();
         if (!this.api) {
@@ -184,7 +274,7 @@ export class GenerativeAI {
         return this;
     }
 
-    init () {
+    init() {
         this._pool = [];
         this.aiConfig.apikeyPool.forEach(apikey => {
             this._pool.push(new Model(this.app, this, {
@@ -197,7 +287,7 @@ export class GenerativeAI {
         return this;
     }
 
-    exit () {
+    exit() {
         this.rpm.exit();
         this.running = false;
     }

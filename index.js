@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 /**
- *
  * @todo maybe rewrite these command as class?
  */
 
@@ -13,7 +12,7 @@ export const Commands = app.App.Commands;
 app.registerProgram({
     name: "AIAPA",
     description: "AI Analyzes Products on Amazon",
-    version: "0.1.12"
+    version: "0.1.13"
 })
     .registerCommands(Commands)
     .startIf(isImported(import.meta.url));

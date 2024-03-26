@@ -2,7 +2,7 @@
 
 import { Browser } from "../api/puppeteer.js";
 import { TaskPool, randomInt, createProgressBar, createMultiProgressBar, sleep, isValidUrl, EventEmitter } from "../utils.js";
-import { loadFile, saveFile, joinPath, saveCSV, splitByNewLine, formatDate, checkDirPermission, CSVstringify } from "../api/dat.js";
+import { loadFile, saveFile, joinPath, splitByNewLine, formatDate, checkDirPermission, CSVstringify } from "../api/dat.js";
 import { Server } from "../api/server.js";
 
 /**
@@ -28,6 +28,8 @@ const Selector = {
     price: "#corePrice_feature_div span.a-price > span",
     sales: "#social-proofing-faceout-title-tk_bought > span",
     star: "#acrPopover > span > a > span",
+    attrs: "#poExpander",
+    feature: "#feature-bullets > ul > li > span",
     reviewNumber: "[data-hook=\"total-review-count\"]",
     totalRate: "[data-hook=\"rating-out-of-text\"]",
     productsReviewLink: "[data-hook=\"see-all-reviews-link-foot\"]",
@@ -67,6 +69,28 @@ const Details = {
             return el.textContent.trim();
         }
     },
+    feature: {
+        querySelector: [Selector.feature],
+        evaluate: (els) => {
+            if (!els) return "";
+            return Array.from(els).map((el) => el.textContent.trim());
+        }
+    },
+    attr: {
+        querySelector: Selector.attrs,
+        evaluate: (el) => {
+            if (!el) return "";
+            let tbody = el.querySelector("tbody");
+            let output = {};
+            if (!tbody) return output;
+            tbody.querySelectorAll("tr").forEach((tr) => {
+                const key = tr.querySelectorAll("td")[0]?.textContent.trim();
+                const value = tr.querySelectorAll("td")[1]?.textContent.trim();
+                if(key && value) output[key] = value;
+            });
+            return output;
+        }
+    },
     specifications: {
         querySelectors: {
             size: {
@@ -74,7 +98,7 @@ const Details = {
                 evaluate: (els) => {
                     if (!els || (Array.isArray(els) && !els.length)) return [];
                     return Array.from(els).map((el) => el.textContent.replace(/\n/g, "")
-                        .replace(" ".repeat(64), "\n").trim());
+                        .replace(/ {32}/g, "\n").trim());
                 }
             },
             style: {
@@ -82,7 +106,7 @@ const Details = {
                 evaluate: (els) => {
                     if (!els || (Array.isArray(els) && !els.length)) return [];
                     return Array.from(els).map((el) => {
-                        let res = el.textContent.replace(/\n/g, "").trim();
+                        let res = el.textContent.replace(/\n/g, "").replace(/ {32}/g, "").trim();
                         if (el.querySelector("img")) {
                             const img = el.querySelector("img");
                             if (img.alt) res += `(${img.alt})`;

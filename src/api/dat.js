@@ -146,6 +146,14 @@ export async function readJSON(filePath) {
     return JSON.parse(await loadFile(filePath));
 }
 
+export function generateUUID() {
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === "x" ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
 /**
  * @deprecated
  * @param {absolutePath} filePath
@@ -170,6 +178,13 @@ export async function appendFile(filePath, data, encoding = "utf-8") {
 
 export async function deleteFile(filePath) {
     return await fs.unlink(path.resolve(process.cwd(), filePath));
+}
+
+export function msToTime(ms) {
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+
+    return `${minutes? minutes + "m ": ""}${seconds % 60}s`;
 }
 
 export async function fileExists(filePath) {

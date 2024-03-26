@@ -1,5 +1,5 @@
 import { GenerativeAI } from "../api/generative.js";
-import { getFilesToObj, readJSON, saveFile, resolve, formatDate, createDirIfNotExists, checkDirPermission, selectFile } from "../api/dat.js";
+import { getFilesToObj, readJSON, saveFile, resolve, formatDate, createDirIfNotExists, checkDirPermission, selectFile, msToTime } from "../api/dat.js";
 import { TfIdfAnalyze } from "../api/natural.js";
 import { TaskPool } from "../utils.js";
 import { renderTemplate } from "../api/page.js";
@@ -89,7 +89,7 @@ export default async function main(app) {
             }
         });
 
-        app.Logger.info(`Time taken: ${Date.now() - time}ms`);
+        app.Logger.info(`Time taken: ${msToTime(Date.now() - time)}ms`);
 
         return results;
     } catch (err) {
@@ -108,20 +108,13 @@ async function chooseFile({ app }) {
     let file = app.config.file;
     if (!file) {
         const otherPromt = "OTHER (select file).";
-        await createDirIfNotExists(app.config.output);
+        await createDirIfNotExists(app.App.getFilePath(app.config.binPath));
         const files = await getFilesToObj(app.App.getFilePath(app.config.binPath));
         const quetions = [...Object.keys(files).filter(v => v.endsWith(".json")), app.UI.separator(), otherPromt, app.UI.separator()];
         const res = await app.UI.select("select a file as input", quetions);
         if (res === otherPromt) {
             try {
-                file = await selectFile({
-                    types: [
-                        [
-                            "JSON",
-                            "*.json"
-                        ]
-                    ]
-                });
+                file = await selectFile({ types: [["JSON", "*.json"]] });
             } catch (err) {
                 app.Logger.warn(err.message);
                 file = await app.UI.input("Enter the file path: ");
@@ -137,7 +130,7 @@ async function chooseFile({ app }) {
  * @param {import("../types").ConcludedProduct[]} datas
  * @returns {import("../types").RenderableData}
  */
-function getRenderable(datas) {
+export function getRenderable(datas) {
     return {
         products: datas.map((v) => {
             const hrefU = new URL(v.href); const stars = Math.ceil(parseInt(v.star));
@@ -148,6 +141,8 @@ function getRenderable(datas) {
                 reviewNumber: v.reviewNumber,
                 sales: v.sales,
                 description: v.conclusion,
+                price: v.price,
+                feature: v.feature,
                 attributes: [{
                     name: "review link",
                     value: v.productsReviewLink
@@ -155,6 +150,11 @@ function getRenderable(datas) {
                     return {
                         name: key,
                         value: v.specifications[key].join(", ")
+                    };
+                }), ...(Object.keys(v.attr || {})).map((key) => {
+                    return {
+                        name: key,
+                        value: v.attr[key]
                     };
                 })]
             };
