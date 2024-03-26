@@ -4,10 +4,6 @@ import { checkDirPermission, createDirIfNotExists, fileExists, generateUUID, get
 import { GenerativeAI, Chat } from "../api/generative.js";
 import { getRenderable } from "./analyze.js";
 
-const config = {
-
-};
-
 /** @param {import("../types").App} app */
 export default async function main(app) {
     await createDirIfNotExists(app.App.getFilePath(app.config.chatHistoryDir));
@@ -15,14 +11,6 @@ export default async function main(app) {
         app.Logger.error("No permission to write to: " + app.App.getFilePath(app.config.chatHistoryDir) + ", please check your permission");
         return;
     }
-
-    // let file = await chooseFile({app}, "Choose the file to chat with");
-    // if (!file) {
-    //     throw app.Logger.error(new Error("file is required"));
-    // }
-
-    // app.config.file = file;
-    // app.Logger.info(`file: ${app.UI.hex(app.UI.Colors.Blue)(file)}`);
 
     const ai = new GenerativeAI(app, {
         apikeyPool: [...(app.config.GEMINI_API_KEY ? [app.config.GEMINI_API_KEY] : []), ...(app.config.apiKey ? [...app.config.apiKey] : [])]
@@ -76,6 +64,19 @@ async function mainMenu({ app, ai }) {
             chat.chatApp.refresh();
             await conversation({ app, ai, chat });
         },
+        "delete conversation": async () => {
+            let history = AppData.history;
+            let ques1 = await app.UI.checkbox("Choose the conversation to delete", [...history.map(v => (`${v.name}(${v.id})`)), app.UI.separator()]);
+            if (!ques1) return;
+            let selected = history.filter(v => ques1.includes(`${v.name}(${v.id})`));
+            if (!selected) return;
+            if (await app.UI.confirm("Are you sure you want to delete the selected conversation?")) {
+                selected.forEach(v => {
+                    v.deleted = true;
+                });
+                await saveChatRaw({ app }, { history: history.filter(v => !v.deleted) });
+            }
+        }
     };
     let ques1 = await app.UI.select("Choose the option", Object.keys(Menu));
     await Menu[ques1]();
@@ -97,8 +98,10 @@ async function conversation({ app, ai, chat }) {
                 if (name) chat.config.name = name;
             },
             ".delete": async function () {
-                chat.config.deleted = true;
-                exit = true;
+                if (await app.UI.confirm("Are you sure you want to delete the conversation?")) {
+                    chat.config.deleted = true;
+                    exit = true;
+                }
             },
             ".import": async function () {
                 let file = await chooseFile({ app }, "Choose the file to import");
@@ -204,13 +207,18 @@ async function loadChat({ app }) {
 }
 
 /**
- * @param {{app: import("../types").App, ai: GenerativeAI, chat: Chat}} param0 
+ * @param {{app: import("../types").App, chat: Chat}} param0 
  */
 async function saveChat({ app, chat }) {
     let path = app.App.getFilePath(joinPath(app.config.chatHistoryDir, app.config.chatHistory));
     /**@type {import("../types").ChatHistory} */
     let data = await loadChat({ app });
-    data.history = [...(chat.config.deleted ? [] : [chat.toData()]), ...data.history.filter(v => v.id !== chat.config.id)];
+    data.history = [...((chat.config.deleted && chat) ? [] : [chat.toData()]), ...data.history.filter(v => v.id !== chat.config.id)];
+    await saveFile(path, JSON.stringify(data));
+}
+
+async function saveChatRaw({ app}, data) {
+    let path = app.App.getFilePath(joinPath(app.config.chatHistoryDir, app.config.chatHistory));
     await saveFile(path, JSON.stringify(data));
 }
 

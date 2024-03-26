@@ -27,6 +27,14 @@ start with:
 aiapa start
 ```
 
+or chat(beta) with Gemini
+
+```bash
+aiapa chat
+```
+
+use .import in conversation to import product data
+
 ### Example of using the Get command
 
 - **Command line startup**: enter `aiapa get` to start the task, the sample code is as follows:
@@ -92,7 +100,22 @@ app.setUserConfig({
 }).load().run(Commands.analyze);
 ```
 
+---
+
 ## Update
+
+### 2024/3/25
+
+This update added the following features:
+
+1. chat command  
+2. chat with Gemini  
+
+Changed the following features:
+
+1. fix null attr problem  
+2. fix permission problems on unix-like systems  
+3. idk, remove herobrine ▬_▬
 
 ### 2024/3/21
 
@@ -133,6 +156,8 @@ Changed the following features:
 3. Handled some unexpected crashes
 4. Fixed the page loading issue
 5. Optimized speed
+
+---
 
 ## Contributions and Licenses
 
