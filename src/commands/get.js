@@ -233,7 +233,7 @@ export default async function main(app) {
 
     app.Logger.verbose("Checking permission to write to: " + app.App.getFilePath(app.config.binPath));
     if (!checkDirPermission(app.App.getFilePath(app.config.binPath))) {
-        app.Logger.error("No permission to write to: " + app.config.binPath + ", please check your permission");
+        app.Logger.error("No permission to write to: " + app.App.getFilePath(app.config.binPath) + ", please check your permission");
         return;
     }
 

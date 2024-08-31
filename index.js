@@ -12,7 +12,7 @@ export const Commands = app.App.Commands;
 app.registerProgram({
     name: "AIAPA",
     description: "AI Analyzes Products on Amazon",
-    version: "0.1.13"
+    version: "0.1.15"
 })
     .registerCommands(Commands)
     .startIf(isImported(import.meta.url));
